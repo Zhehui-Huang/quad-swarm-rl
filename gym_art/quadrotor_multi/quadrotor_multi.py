@@ -292,6 +292,8 @@ class QuadrotorEnvMulti(gym.Env):
         cur_vel = self.envs[i].dynamics.vel
         pos_neighbor = np.stack([self.envs[j].dynamics.pos for j in indices])
         vel_neighbor = np.stack([self.envs[j].dynamics.vel for j in indices])
+        rot_neighbor = np.stack([self.envs[j].dynamics.rot.reshape(-1) for j in indices])
+        omega_neighbor = np.stack([self.envs[j].dynamics.omega for j in indices])
         pos_rel = pos_neighbor - cur_pos
         if self.neighbor_rel_pos_mode == 1:
             pos_rel_mag = np.linalg.norm(pos_rel, axis=1)
@@ -300,25 +302,29 @@ class QuadrotorEnvMulti(gym.Env):
             pos_rel = pos_rel - 2.0 * self.quad_arm * pos_rel_norm
 
         vel_rel = vel_neighbor - cur_vel
-        return pos_rel, vel_rel
+        return pos_rel, vel_rel, rot_neighbor, omega_neighbor
 
     def get_rel_pos_vel_stack(self):
         rel_pos_stack, rel_vel_stack = [], []
+        rot_stack, omega_stack = [], []
         for i in range(self.num_agents):
-            pos_rel, vel_rel = self.get_rel_pos_vel_item(env_id=i)
+            pos_rel, vel_rel, rot_neighbor, omega_neighbor = self.get_rel_pos_vel_item(env_id=i)
             rel_pos_stack.append(pos_rel)
             rel_vel_stack.append(vel_rel)
-        return np.array(rel_pos_stack), np.array(rel_vel_stack)
+            rot_stack.append(rot_neighbor)
+            omega_stack.append(omega_neighbor)
+
+        return np.array(rel_pos_stack), np.array(rel_vel_stack), np.array(rot_stack), np.array(omega_stack)
 
     def get_obs_neighbor_rel(self, env_id, closest_drones):
         i = env_id
-        pos_neighbors_rel, vel_neighbors_rel = self.get_rel_pos_vel_item(env_id=i, indices=closest_drones[i])
+        pos_neighbors_rel, vel_neighbors_rel, rot_neighbors, omega_neighbors = self.get_rel_pos_vel_item(env_id=i, indices=closest_drones[i])
 
         if self.swarm_obs == 'pos_vel':
             obs_neighbor_rel = np.concatenate((pos_neighbors_rel, vel_neighbors_rel), axis=1)
         elif self.swarm_obs == 'pos_vel_size':
             sizes = np.ones((pos_neighbors_rel.shape[0], 1)) * self.envs[0].dynamics.arm
-            obs_neighbor_rel = np.concatenate((pos_neighbors_rel, vel_neighbors_rel, sizes), axis=1)
+            obs_neighbor_rel = np.concatenate((pos_neighbors_rel, vel_neighbors_rel, rot_neighbors, omega_neighbors, sizes), axis=1)
         else:
             neighbor_goals_rel = np.stack([self.envs[j].goal for j in closest_drones[i]]) - self.envs[i].dynamics.pos
 
@@ -728,7 +734,7 @@ class QuadrotorEnvMulti(gym.Env):
                         e.reset(midreset=True)
                         self.obst_midreset_list[i] = 0
 
-    def sort_obs(self, obs, self_obs_dim=24, nbr_obs_dim=7):
+    def sort_obs(self, obs, self_obs_dim=24, nbr_obs_dim=19):
         '''
         Sort for the K nearest neighbor 'obstacles', where an object can be a drone or a pillar
         Discard the other neighbor observations

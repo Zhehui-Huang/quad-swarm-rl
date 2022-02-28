@@ -26,7 +26,7 @@ obs_self_size_dict = {
 obs_neighbor_size_dict = {
     'none': 0,
     'pos_vel': 6,
-    'pos_vel_size': 7,
+    'pos_vel_size': 19,
     'pos_vel_goals': 9,
     'pos_vel_goals_ndist_gdist': 11,
 }

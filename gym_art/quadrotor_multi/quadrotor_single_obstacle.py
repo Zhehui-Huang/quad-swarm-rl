@@ -261,7 +261,11 @@ class SingleObstacle:
             elif self.obs_type == 'pos_size' or self.obs_type == 'posxy_size':
                 obs = np.concatenate((rel_pos, obst_size), axis=1)
             elif self.obs_type == 'pos_vel_size':
-                obs = np.concatenate((rel_pos, rel_vel, obst_size), axis=1)
+                rot_matrix = np.identity(3).reshape(-1)
+                rot_matrix = np.tile(rot_matrix, rel_pos.shape[0]).reshape(rel_pos.shape[0], -1)
+                omega = np.array([0., 0., 1.])
+                omega = np.tile(omega, rel_pos.shape[0]).reshape(rel_pos.shape[0], -1)
+                obs = np.concatenate((rel_pos, rel_vel, rot_matrix, omega, obst_size), axis=1)
             elif self.obs_type == 'pos_vel_size_shape':
                 obs = np.concatenate((rel_pos, rel_vel, obst_size, obst_shape), axis=1)
             else:
