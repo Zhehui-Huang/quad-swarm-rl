@@ -275,10 +275,10 @@ class QuadrotorDynamics:
     def step(self, thrust_cmds, dt):
         thrust_noise = self.thrust_noise.noise()
 
-        if self.use_numba:
-            [self.step1_numba(thrust_cmds, dt, thrust_noise) for t in range(self.dynamics_steps_num)]
-        else:
-            [self.step1(thrust_cmds, dt, thrust_noise) for t in range(self.dynamics_steps_num)]
+        for _ in range(self.dynamics_steps_num):
+            self.step1_numba(thrust_cmds, dt, thrust_noise) if self.use_numba else \
+                    self.step1(thrust_cmds, dt, thrust_noise)
+
 
     ## Step function integrates based on current derivative values (best fits affine dynamics model)
     # thrust_cmds is motor thrusts given in normalized range [0, 1].
