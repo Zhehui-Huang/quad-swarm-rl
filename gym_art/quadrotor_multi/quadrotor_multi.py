@@ -39,7 +39,6 @@ class QuadrotorEnvMulti(gym.Env):
                  viz_traces=25, viz_trace_nth_step=1):
 
         super().__init__()
-
         self.num_agents = num_agents
         self.swarm_obs = swarm_obs
         assert local_obs <= self.num_agents - 1 or local_obs == -1, f'Invalid value ({local_obs}) passed to --local_obs. Should be 0 < n < num_agents - 1, or -1'
