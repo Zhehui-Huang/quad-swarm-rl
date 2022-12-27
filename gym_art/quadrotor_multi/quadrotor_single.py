@@ -370,9 +370,12 @@ class QuadrotorDynamics:
         # damping_torque = - 0.3 * self.omega * np.fabs(self.omega)
         self.torque = thrust_torque + rotor_visc_torque
 
+        ### Wentao ###
         # Add rotation torque if the drones is on the ground
-        if self.pos[2] == 0:
-            self.torque += - self.omega * self.inertia * 1 / dt
+        # if self.pos[2] == 0:
+        #     self.torque += - self.omega * self.inertia * 1 / dt
+        ### Wentao ###
+
         thrust = npa(0, 0, np.sum(thrusts))
 
         #########################################################
@@ -416,7 +419,13 @@ class QuadrotorDynamics:
         omega_damp_quadratic = np.clip(self.damp_omega_quadratic * self.omega ** 2, a_min=0.0, a_max=1.0)
         self.omega = self.omega + (1.0 - omega_damp_quadratic) * dt * self.omega_dot
         self.omega = np.clip(self.omega, a_min=-self.omega_max, a_max=self.omega_max)
-
+        
+        ### Wentao ###
+        if self.pos[2] <= 0.:
+            self.omega = np.zeros(3)
+            self.rot = self.eye
+            
+        ### Wentao ###
         ## When use square damping on torques - use simple integration
         ## since damping is accounted as part of the net torque
         # self.omega += dt * omega_dot
@@ -441,9 +450,9 @@ class QuadrotorDynamics:
 
         # Add friction if the drones is on the ground
         # friction = mu_k * F_n
-        static_mu_k = 0.22
-        rolling_mu_k = 0.2
-        if self.pos[2] == 0:
+        static_mu_k = 99999.
+        rolling_mu_k = 99999.
+        if self.pos[2] <= 0.05:
             # step 1: compute F_n
             vel_xy = np.array([self.vel[0], self.vel[1], 0.])
             vel_xy_dir = vel_xy / np.linalg.norm(vel_xy)
