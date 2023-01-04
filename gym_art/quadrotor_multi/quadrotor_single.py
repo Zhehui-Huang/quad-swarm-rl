@@ -312,6 +312,7 @@ class QuadrotorDynamics:
         thrusts = self.thrust_max * self.angvel2thrust(self.thrust_cmds_damp, linearity=self.motor_linearity)
         # Prop crossproduct give torque directions
         self.torques = self.prop_crossproducts * thrusts[:, None]  # (4,3)=(props, xyz)
+        
         # additional torques along z-axis caused by propeller rotations
         self.torques[:, 2] += self.torque_max * self.prop_ccw * self.thrust_cmds_damp
 
@@ -370,11 +371,9 @@ class QuadrotorDynamics:
         # damping_torque = - 0.3 * self.omega * np.fabs(self.omega)
         self.torque = thrust_torque + rotor_visc_torque
 
-        ### Wentao ###
         # Add rotation torque if the drones is on the ground
         # if self.pos[2] == 0:
         #     self.torque += - self.omega * self.inertia * 1 / dt
-        ### Wentao ###
 
         thrust = npa(0, 0, np.sum(thrusts))
 
@@ -420,12 +419,10 @@ class QuadrotorDynamics:
         self.omega = self.omega + (1.0 - omega_damp_quadratic) * dt * self.omega_dot
         self.omega = np.clip(self.omega, a_min=-self.omega_max, a_max=self.omega_max)
         
-        ### Wentao ###
         if self.pos[2] <= 0.:
             self.omega = np.zeros(3)
             self.rot = self.eye
-            
-        ### Wentao ###
+
         ## When use square damping on torques - use simple integration
         ## since damping is accounted as part of the net torque
         # self.omega += dt * omega_dot
