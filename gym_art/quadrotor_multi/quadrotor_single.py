@@ -312,7 +312,7 @@ class QuadrotorDynamics:
         thrusts = self.thrust_max * self.angvel2thrust(self.thrust_cmds_damp, linearity=self.motor_linearity)
         # Prop crossproduct give torque directions
         self.torques = self.prop_crossproducts * thrusts[:, None]  # (4,3)=(props, xyz)
-
+        
         # additional torques along z-axis caused by propeller rotations
         self.torques[:, 2] += self.torque_max * self.prop_ccw * self.thrust_cmds_damp
 
@@ -413,6 +413,10 @@ class QuadrotorDynamics:
         omega_damp_quadratic = np.clip(self.damp_omega_quadratic * self.omega ** 2, a_min=0.0, a_max=1.0)
         self.omega = self.omega + (1.0 - omega_damp_quadratic) * dt * self.omega_dot
         self.omega = np.clip(self.omega, a_min=-self.omega_max, a_max=self.omega_max)
+        
+        if self.pos[2] <= 0.05:
+            self.omega = np.zeros(3)
+            self.rot = self.eye
 
         ## When use square damping on torques - use simple integration
         ## since damping is accounted as part of the net torque
@@ -435,6 +439,41 @@ class QuadrotorDynamics:
         ## Computing accelerations
         acc = [0, 0, -GRAV] + (1.0 / self.mass) * np.matmul(self.rot, (thrust + rotor_drag_force))
         # acc[mask] = 0. #If we leave the room - stop accelerating
+
+        # Add friction if the drones is on the ground
+        # friction = mu_k * F_n
+        static_mu_k = 99999.
+        rolling_mu_k = 99999.
+        if self.pos[2] <= 0.05:
+            # step 0: force pos_z = 0.05
+            self.pos[2] = 0.05
+            # step 1: compute F_n
+            vel_xy = np.array([self.vel[0], self.vel[1], 0.])
+            vel_xy_dir = vel_xy / np.linalg.norm(vel_xy)
+            acc_xy = np.array([acc[0], acc[1], 0.])
+            acc_xy_dir = acc_xy / np.linalg.norm(acc_xy)
+            F_n = -(-GRAV + acc[2]) * self.mass
+
+            # step 2: determine static or rolling friction
+            F_xy = acc_xy * self.mass
+            if np.linalg.norm(vel_xy) == 0:
+                # step 2.1: static friction
+                # check if exceeds limit static friction
+                max_static_friction = - acc_xy_dir * F_n * static_mu_k
+                if np.dot(F_xy + max_static_friction, F_xy) > 0:
+                    acc += max_static_friction / self.mass
+                else:
+                    acc[0:2] = 0.
+            else:
+                # step 2.2: rolling friction
+                # check if stops with dt
+                rolling_friction = - vel_xy_dir * F_n * rolling_mu_k
+                acc += rolling_friction / self.mass
+                acc_xy = np.array([acc[0], acc[1], 0.])
+                pred_vel_xy = vel_xy + dt * acc_xy
+                if np.dot(vel_xy, pred_vel_xy) <= 0:
+                    acc[0:2] = 0.
+                    self.vel[0:2] = 0.
         self.acc = acc
 
         ## Computing velocities
