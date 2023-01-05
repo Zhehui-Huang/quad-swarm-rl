@@ -312,7 +312,7 @@ class QuadrotorDynamics:
         thrusts = self.thrust_max * self.angvel2thrust(self.thrust_cmds_damp, linearity=self.motor_linearity)
         # Prop crossproduct give torque directions
         self.torques = self.prop_crossproducts * thrusts[:, None]  # (4,3)=(props, xyz)
-        
+
         # additional torques along z-axis caused by propeller rotations
         self.torques[:, 2] += self.torque_max * self.prop_ccw * self.thrust_cmds_damp
 
