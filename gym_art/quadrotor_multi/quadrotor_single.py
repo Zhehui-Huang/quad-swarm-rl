@@ -447,6 +447,7 @@ class QuadrotorDynamics:
         if self.pos[2] <= 0.05:
             # step 0: force pos_z = 0.05
             self.pos[2] = 0.05
+
             # step 1: compute F_n
             vel_xy = np.array([self.vel[0], self.vel[1], 0.])
             vel_xy_dir = vel_xy / np.linalg.norm(vel_xy)
@@ -500,7 +501,7 @@ class QuadrotorDynamics:
         grav_cnst_arr = np.float64([0, 0, -GRAV])
         sum_thr_drag = thrust + rotor_drag_force
         grav_arr = np.float64([0, 0, self.gravity])
-        self.vel, self.acc, self.accelerometer = compute_velocity_and_acceleration(self.vel, grav_cnst_arr, self.mass, self.rot,
+        self.pos, self.vel, self.acc, self.accelerometer = compute_velocity_and_acceleration(self.pos, self.vel, grav_cnst_arr, self.mass, self.rot,
                                                                          sum_thr_drag, self.vel_damp, dt, self.rot.T,
                                                                          grav_arr)
 
@@ -1736,22 +1737,64 @@ def calculate_torque_integrate_rotations_and_update_omega(thrust_cmds, dt, eps, 
     # Computing position
     pos = pos + dt * vel
 
+    # Interaction with ground
+    if pos[2] <= 0.05:
+        omega = np.zeros(3)
+        rot = eye
+
     return motor_tau_up, motor_tau_down, thrust_rot_damp, thrust_cmds_damp, torques, \
            torque, rot, since_last_svd, omega_dot, omega, pos, thrust, rotor_drag_force
 
 
 @njit
-def compute_velocity_and_acceleration(vel, grav_cnst_arr, mass, rot, sum_thr_drag, vel_damp, dt, rot_tpose,
+def compute_velocity_and_acceleration(pos, vel, grav_cnst_arr, mass, rot, sum_thr_drag, vel_damp, dt, rot_tpose,
                                       grav_arr):
     # Computing accelerations
     acc = grav_cnst_arr + ((1.0 / mass) * (rot @ sum_thr_drag))
 
+    # Add friction if the drones is on the ground
+    # friction = mu_k * F_n
+    static_mu_k = 99999.
+    rolling_mu_k = 99999.
+    if pos[2] <= 0.05:
+        # step 0: force pos_z = 0.05
+        pos[2] = 0.05
+
+        # step 1: compute F_n
+        vel_xy = np.array([vel[0], vel[1], 0.])
+        vel_xy_dir = vel_xy / np.linalg.norm(vel_xy)
+        acc_xy = np.array([acc[0], acc[1], 0.])
+        acc_xy_dir = acc_xy / np.linalg.norm(acc_xy)
+        F_n = -(-GRAV + acc[2]) * mass
+
+        # step 2: determine static or rolling friction
+        F_xy = acc_xy * mass
+        if np.linalg.norm(vel_xy) == 0:
+            # step 2.1: static friction
+            # check if exceeds limit static friction
+            max_static_friction = - acc_xy_dir * F_n * static_mu_k
+            if np.dot(F_xy + max_static_friction, F_xy) > 0:
+                acc += max_static_friction / mass
+            else:
+                acc[0:2] = 0.
+        else:
+            # step 2.2: rolling friction
+            # check if stops with dt
+            rolling_friction = - vel_xy_dir * F_n * rolling_mu_k
+            acc += rolling_friction / mass
+            acc_xy = np.array([acc[0], acc[1], 0.])
+            pred_vel_xy = vel_xy + dt * acc_xy
+            if np.dot(vel_xy, pred_vel_xy) <= 0:
+                acc[0:2] = 0.
+                vel[0:2] = 0.
+                
     # Computing velocities
     vel = (1.0 - vel_damp) * vel + dt * acc
 
     # Accelerometer measures so called "proper acceleration" that includes gravity with the opposite sign
     accm = rot_tpose @ (acc + grav_arr)
-    return vel, acc, accm
+
+    return pos, vel, acc, accm
 
 
 if __name__ == '__main__':
