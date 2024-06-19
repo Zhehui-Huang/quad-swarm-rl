@@ -130,9 +130,9 @@ def calculate_drone_obst_proximity_penalties(r_drone, r_obst, penalty_coeff, pen
 
 
 def unit_test():
-    penalties = calculate_drone_obst_proximity_penalties(r_drone=0.05, r_obst=0.15, penalty_coeff=2, penalty_range=1,
-                                             quads_pos=np.array([[0.,0., 2.]]), quads_vel=np.array([[1., 0., 0.]]),
-                                             obst_pos=np.array([[0.5, 0., 2.]]), dt=1)
+    penalties = calculate_drone_obst_proximity_penalties(
+        r_drone=0.05, r_obst=0.15, penalty_coeff=2, penalty_range=1, quads_pos=np.array([[0., 0., 2.]]),
+        quads_vel=np.array([[1., 0., 0.]]), obst_pos=np.array([[0.5, 0., 2.]]), dt=1)
     print(penalties)
     return
 
