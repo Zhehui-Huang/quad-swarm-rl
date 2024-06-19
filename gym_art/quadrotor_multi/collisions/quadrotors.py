@@ -120,10 +120,22 @@ def calculate_drone_obst_proximity_penalties(r_drone, r_obst, penalty_coeff, pen
             sin_alpha = (r_drone + r_obst) / dist
             alpha = np.arcsin(sin_alpha)
 
-            penalty_bool = float(theta <= alpha) * float(dist <= penalty_range + r_drone + r_obst)
+            penalty_bool = float(theta <= alpha) * float(dist <= (penalty_range + r_drone + r_obst))
             tmp_penalty = penalty_bool * penalty_coeff * (q_speed * cos_theta)
             penalty_item = max(penalty_item, tmp_penalty)
 
         penalties[qid] = penalty_item
 
     return dt * penalties
+
+
+def unit_test():
+    penalties = calculate_drone_obst_proximity_penalties(r_drone=0.05, r_obst=0.15, penalty_coeff=2, penalty_range=1,
+                                             quads_pos=np.array([[0.,0., 2.]]), quads_vel=np.array([[1., 0., 0.]]),
+                                             obst_pos=np.array([[0.5, 0., 2.]]), dt=1)
+    print(penalties)
+    return
+
+
+if __name__ == "__main__":
+    unit_test()
