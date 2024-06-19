@@ -93,6 +93,11 @@ def add_quadrotors_env_args(env, parser):
     p.add_argument('--quads_obst_collision_reward', default=0.0, type=float,
                    help='Override default value for quadcol_bin_obst reward, which means collisions between quadrotor '
                         'and obstacles')
+    p.add_argument('--quads_obst_collision_smooth_max_penalty', default=0.0, type=float,
+                   help='The upper bound of the collision function given distance among drones')
+    p.add_argument('--quads_obst_collision_smooth_penalty_range', default=0.0, type=float,
+                   help='The upper bound of the distance between obstacles and drones for smooth penalty to be applied')
+
 
     # Aerodynamics
     # # Downwash

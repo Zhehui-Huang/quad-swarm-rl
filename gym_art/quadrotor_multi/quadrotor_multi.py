@@ -9,7 +9,7 @@ import numpy as np
 from gym_art.quadrotor_multi.aerodynamics.downwash import perform_downwash
 from gym_art.quadrotor_multi.collisions.obstacles import perform_collision_with_obstacle
 from gym_art.quadrotor_multi.collisions.quadrotors import calculate_collision_matrix, \
-    calculate_drone_proximity_penalties, perform_collision_between_drones
+    calculate_drone_proximity_penalties, perform_collision_between_drones, calculate_drone_obst_proximity_penalties
 from gym_art.quadrotor_multi.collisions.room import perform_collision_with_wall, perform_collision_with_ceiling
 from gym_art.quadrotor_multi.obstacles.utils import get_cell_centers
 from gym_art.quadrotor_multi.quad_utils import QUADS_OBS_REPR, QUADS_NEIGHBOR_OBS_TYPE
@@ -28,6 +28,7 @@ class QuadrotorEnvMulti(gym.Env):
                  # Obstacle
                  use_obstacles, obst_density, obst_size, obst_spawn_area, obst_obs_type, obst_noise, grid_size,
                  obst_tof_resolution, obst_spawn_center, obst_grid_size_random, obst_grid_size_range,
+                 obst_penalty_range,
 
                  # Aerodynamics, Numba Speed Up, Scenarios, Room, Replay Buffer, Rendering
                  use_downwash, use_numba, quads_mode, room_dims, use_replay_buffer, quads_view_mode,
@@ -136,6 +137,7 @@ class QuadrotorEnvMulti(gym.Env):
             self.obst_spawn_center = obst_spawn_center
             self.obst_grid_size_random = obst_grid_size_random
             self.obst_grid_size_range = obst_grid_size_range
+            self.obst_penalty_range = obst_penalty_range
 
             assert self.obst_size <= self.grid_size
             self.obst_tof_resolution = obst_tof_resolution
@@ -571,6 +573,13 @@ class QuadrotorEnvMulti(gym.Env):
         if self.use_obstacles:
             rew_collisions_obst_quad = self.rew_coeff["quadcol_bin_obst"] * rew_obst_quad_collisions_raw
 
+            # smooth penalty
+            rew_obst_proximity = -1.0 * calculate_drone_obst_proximity_penalties(
+                r_drone=self.quad_arm, r_obst=self.obst_size,
+                penalty_coeff=self.rew_coeff["quadcol_bin_obst_smooth_max"], penalty_range=self.obst_penalty_range,
+                quads_pos=self.pos, quads_vel=self.vel, obst_pos=self.obstacles.pos_arr, dt=self.control_dt,
+            )
+
         # 3) With room
         # # TODO: reward penalty
         if self.envs[0].tick >= self.collisions_grace_period_steps:
@@ -590,8 +599,11 @@ class QuadrotorEnvMulti(gym.Env):
 
             if self.use_obstacles:
                 rewards[i] += rew_collisions_obst_quad[i]
+                rewards[i] += rew_obst_proximity[i]
+
                 infos[i]["rewards"]["rew_quadcol_obstacle"] = rew_collisions_obst_quad[i]
                 infos[i]["rewards"]["rewraw_quadcol_obstacle"] = rew_obst_quad_collisions_raw[i]
+                infos[i]["rewards"]["rew_obst_proximity"] = rew_obst_proximity[i]
 
             self.distance_to_goal[i].append(-infos[i]["rewards"]["rewraw_pos"])
             self.distance_to_goal_xy[i].append(np.linalg.norm(obs[i][:2]))
