@@ -85,11 +85,14 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         reward_shaping['quad_rewards']['quadcol_bin'] = 0.0
         reward_shaping['quad_rewards']['quadcol_bin_smooth_max'] = 0.0
         reward_shaping['quad_rewards']['quadcol_bin_obst'] = 0.0
+        reward_shaping['quad_rewards']['quadcol_bin_obst_smooth_max'] = cfg.quads_obst_collision_smooth_max_penalty
         annealing = [
             AnnealSchedule('quadcol_bin', cfg.quads_collision_reward, cfg.anneal_collision_steps),
             AnnealSchedule('quadcol_bin_smooth_max', cfg.quads_collision_smooth_max_penalty,
                            cfg.anneal_collision_steps),
             AnnealSchedule('quadcol_bin_obst', cfg.quads_obst_collision_reward, cfg.anneal_collision_steps),
+            AnnealSchedule('quadcol_bin_obst_smooth_max', cfg.quads_obst_collision_smooth_max_penalty,
+                           cfg.anneal_collision_steps),
         ]
     else:
         annealing = None
