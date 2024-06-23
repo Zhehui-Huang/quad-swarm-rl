@@ -46,8 +46,8 @@ class QuadrotorDynamics:
         # cw = 1 ; ccw = -1 [ccw, cw, ccw, cw]
         self.prop_ccw = np.array([-1., 1., -1., 1.])
         # Reference: https://docs.google.com/document/d/1wZMZQ6jilDbj0JtfeYt0TonjxoMPIgHwYbrFrMNls84/edit
-        self.omega_max = 40.  # rad/s The CF sensor can only show 35 rad/s (2000 deg/s), we allow some extra
-        self.vxyz_max = 3.  # m/s
+        self.omega_max = 35.  # rad/s The CF sensor can only show 35 rad/s (2000 deg/s), we allow some extra
+        self.vxyz_max = 2.  # m/s
         self.gravity = gravity
         self.acc_max = 3. * GRAV
         self.since_last_svd = 0  # counter

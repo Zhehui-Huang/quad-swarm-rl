@@ -65,7 +65,7 @@ def parse_args():
                              'to False if you want to output a c model that will be actually used for sim2real')
     parser.add_argument('--model_type', type=str,
                         default='single',
-                        choices=['single', 'single_obst', 'multi_deepset', 'multi_obst_attention'],
+                        choices=['single', 'single_obst', 'multi_deepset', 'multi_obst_attn'],
                         help='What kind of model we are working with. '
                              'single: single drone, without neighbor encoder, without obstacle encoder.'
                              'single_obst: single drone, without neighbor encoder, with obstacle encoder.'
