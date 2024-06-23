@@ -59,7 +59,8 @@ def load_sf_model(model_dir, model_type):
     c_model_names = []
     for model_path in model_paths:
         model = create_actor_critic(args, env.observation_space, env.action_space)
-        model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu'))['model'])
+        # model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu'))['model'])
+        model.load_state_dict(torch.load(model_path))
         models.append(model)
 
         # Extract the step number from the model path

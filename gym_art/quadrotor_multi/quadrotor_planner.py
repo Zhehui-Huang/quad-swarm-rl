@@ -10,17 +10,15 @@ class QuadPlanner:
         self,
         poly_degree: int = 7
     ):
-        """ Creates the quad planenr class.
+        """ Creates the quad planner class.
 
         Arguments:
-
+            poly_degree: polynomial degree for trajectory representation. 
         """
         self.poly_degree = poly_degree
         self.planned_trajectory = {
             # Piecewise Trajectory
             "t_begin": 0.0,
-            "timescale": 0.0,
-            "shift": np.zeros(3),
             "n_pieces": 0,
             "pieces": [poly4d(degree=self.poly_degree)]
         }
@@ -34,12 +32,27 @@ class poly4d:
 
 @dataclass
 class traj_eval:
-    """ Holds data for a goal point """
-    pos: np.ndarray = np.zeros(3)
+    """ Holds data for a goal point 
+        pos: [x,y,z]
+        vel: [x,y,z]
+        acc: [x,y,z]
+        omega: [roll, pitch, yaw]
+        yaw: Radians
+        NOTE: All values default to zero.
+    """
+    pos: np.ndarray = np.zeros(3) 
     vel: np.ndarray = np.zeros(3)
     acc: np.ndarray = np.zeros(3)
     omega: np.ndarray = np.zeros(3)
     yaw: float = 0
+
+    def set_initial_state(self, state: np.ndarray):
+        """ Sets the corresponding states based on input state: [x,y,z,yaw] """
+        self.pos[0] = state[0]
+        self.pos[1] = state[1]
+        self.pos[2] = state[2]
+
+        self.yaw = state[3]
 
     
 
