@@ -67,13 +67,22 @@ class QuadTrajGen:
             t = t - piece.duration
             cursor = cursor + 1
 
-        end_piece = self.planner.planned_trajectory["pieces"][self.planner.planned_trajectory["n_pieces"] - 1]
+        end_piece = copy.deepcopy(self.planner.planned_trajectory["pieces"][-1])
         ev = self.__poly4d_eval(end_piece, end_piece.duration)
         ev.vel = np.zeros(3)
         ev.acc = np.zeros(3)
         ev.omega = np.zeros(3)
         
         return ev
+
+    def plan_finished(self, t) -> int:
+        """ Returns if the current goal point should have been reached given the current time. """
+        
+        return int((t - self.planner.planned_trajectory["t_begin"]) >= self.planner.planned_trajectory["pieces"][0].duration)
+
+    def get_trajectory(self) -> list:
+        """ Returns the most previously evaluated trajectory """
+        return self.stored_goal_points   
 
     def __piecewise_plan_7th_order_no_jerk(self, duration, p0, y0, v0, dy0, a0, p1, y1, v1, dy1, a1):
         p = poly4d(self.poly_degree)
@@ -86,7 +95,9 @@ class QuadTrajGen:
         self.__poly7_nojerk(p.poly[2], duration, p0[2], v0[2], a0[2], p1[2], v1[2], a1[2])
         self.__poly7_nojerk(p.poly[3], duration, y0, dy0, 0, y1, dy1, 0)
 
+        # self.planner.planned_trajectory["pieces"].append(p)
         self.planner.planned_trajectory["pieces"][0] = p
+
 
     def __poly7_nojerk(self, poly, T, x0, dx0, ddx0, xf, dxf, ddxf):
 
@@ -137,20 +148,20 @@ class QuadTrajGen:
         for i in range(self.poly_degree, -1, -1):
 
             x = x * t + polynomial[i]
+        
+        if (x < 0.00001):
+            x = 0
 
         return x
 
-    def __poly4d_derivative(self, piece: poly4d) -> poly4d:
+    def __poly4d_derivative(self, piece: poly4d):
         # Take derivative of each state
         for i in range(4):
             #Iterate through each exponent
             for j in range(1, piece.degree+1):
-                print(j)
                 piece.poly[i][j-1] = j * piece.poly[i][j]
 
             piece.poly[i][piece.degree] = 0
-        
-        return piece
 
     def __normalize_radians(self, angle: float) -> float:
         """ Normalize radians to the range: [-pi, pi]"""
@@ -160,44 +171,55 @@ class QuadTrajGen:
         diff = goal - start
         return (diff + self.PI) % (2*self.PI) - self.PI
 
+    def __vprojectunit(self, a, b_unit):
+        return np.dot(a, b_unit) * b_unit
+
+    def __vorthunit(self, a, b_unit):
+        return np.subtract(a, self.__vprojectunit(a, b_unit))
 
     def __vcross(self, a, b):
         return np.array([a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]])
+
+    def __mag(self, a):
+        return (np.dot(a, a) ** 0.5)
             
     def __poly4d_eval(self, piece: poly4d, t: float) -> traj_eval:
         # Output of desired states
         out = traj_eval()
         out.pos = self.__polyval_xyz(piece, t)
         out.yaw = self.__polyval_yaw(piece, t)
-
         # 1st Derivative
-        piece = self.__poly4d_derivative(piece)
+        self.__poly4d_derivative(piece)
         out.vel = self.__polyval_xyz(piece, t)
         dyaw = self.__polyval_yaw(piece, t)
 
         # 2nd Derivative
-        piece = self.__poly4d_derivative(piece)
+        self.__poly4d_derivative(piece)
         out.acc = self.__polyval_xyz(piece, t)
 
         # 3rd Derivative
-        piece = self.__poly4d_derivative(piece)
+        self.__poly4d_derivative(piece)
         jerk = self.__polyval_xyz(piece, t)
 
         thrust = np.add(out.acc, [0, 0, 9.81])
+
         z_body, _ = normalize(thrust)
         x_world = np.array([np.cos(out.yaw), np.sin(out.yaw), 0])
         y_body, _ = normalize(self.__vcross(z_body, x_world))
         x_body = self.__vcross(y_body, z_body)
 
-        project_unit = np.dot(jerk, z_body) * z_body
-        jerk_orth_zbody = np.subtract(jerk, project_unit)
-        scale = (1 / norm2(thrust))
+        # project_unit = np.dot(jerk, z_body) * z_body
+        # jerk_orth_zbody = np.subtract(jerk, project_unit)
+        jerk_orth_zbody = self.__vorthunit(jerk, z_body)
+        scale = (1.0 / self.__mag(thrust))
         h_w = scale * jerk_orth_zbody 
 
-        out.omega[0] = -1 * np.dot(h_w, y_body)
-        out.omega[1] = np.dot(h_w, x_body)
-        out.omega[2] = z_body[2] * dyaw
+        roll_rate = -1 * np.dot(h_w, y_body)
+        pitch_rate = np.dot(h_w, x_body)
+        yaw_rate = z_body[2] * dyaw
 
+        out.omega = np.array([roll_rate, pitch_rate, yaw_rate])
+    
         self.stored_goal_points.append(out)
 
         return out
@@ -217,49 +239,72 @@ if __name__ == "__main__":
     # Begining time of episode in seconds
     t = 0.0 
     # Duration needed to complete trajectory in seconds
-    duration = 10.05
+    duration = 2.5
 
     # Create an instance goal point for the initial state. 
     initial_state = traj_eval()
-    initial_state.set_initial_state([0,0,0.65,0])
+    initial_state.set_initial_state([0.0,0.0,0.65,0])
     
     #Desired FINAL goal point
-    goal_state = [5.00000, 1.00000, 0.65, 0]
+    goal_state = [5.00000, 0.00000, 0.65, 3.14]
 
     print("Initial State:", initial_state)
 
     total_traj = [initial_state]
     traj_gen.plan_go_to_from(initial_state=initial_state, desired_state=goal_state, duration=duration, current_time=t)
-    print(traj_gen.planner.planned_trajectory["pieces"])
-
-    sim_time = 15
-
+    
+    sim_time = 5
     # Get setpoint loops. This can be understood as the simulation steps.
     while(t < sim_time):  
 
         t += 0.1
-
+        # Evaluate the next goal point based on the current simulation time (in seconds).
         next_goal = traj_gen.piecewise_eval(t)
-        total_traj.append(next_goal)
+        print(next_goal.omega)
+        # We can also replan during the simulation. 
+        # NOTE: THIS SHOULD ONLY BE CALLED AFTER THE PREVIOUS PLAN HAS FINISHED.
+        # if (traj_gen.plan_finished(t)):
+        #     traj_gen.plan_go_to_from(initial_state=next_goal, desired_state=[0, 0, 0.65, 0], duration=duration, current_time=t)
+        #     plan_stale = False
 
     print("Final State: ", total_traj[-1])
 
-    # ax = plt.figure().add_subplot(projection='3d')
-    # for point in total_traj:
-    #     ax.scatter(point.pos[0], point.pos[1], point.pos[2], c='b')
+
+    fig, axs = plt.subplots(3)
 
 
-    plt.figure()
+    x = []
+    y = []
+    z = []
     vx = []
     vy = []
     vz = []
-    for point in total_traj:
+
+    o_r = []
+    o_p = []
+    o_y = []
+    for point in traj_gen.get_trajectory():
+        x.append(point.pos[0])
+        y.append(point.pos[1])
+        z.append(point.pos[2])
         vx.append(point.vel[0])
         vy.append(point.vel[1])
         vz.append(point.vel[2])
-    plt.plot(vx)
-    plt.plot(vy)
-    plt.plot(vz)
+        o_r.append(point.omega[0])
+        o_p.append(point.omega[1])
+        o_y.append(point.omega[2])
+    axs[0].plot(x, label="x")
+    axs[0].plot(y, label="y")
+    axs[0].plot(z, label="z")
+    plt.legend()
+    axs[1].plot(vx)
+    axs[1].plot(vy)
+    axs[1].plot(vz)
+
+    # axs[2].set_ylim(-3.14, 3.14)
+    axs[2].plot(o_r)
+    axs[2].plot(o_p)
+    axs[2].plot(o_y)
 
     plt.show()
     

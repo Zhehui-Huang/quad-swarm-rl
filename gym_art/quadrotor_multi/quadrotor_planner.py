@@ -33,10 +33,10 @@ class poly4d:
 @dataclass
 class traj_eval:
     """ Holds data for a goal point 
-        pos: [x,y,z]
-        vel: [x,y,z]
-        acc: [x,y,z]
-        omega: [roll, pitch, yaw]
+        pos: [x,y,z] (m)
+        vel: [x,y,z] (m/s)
+        acc: [x,y,z] (m/s^2)
+        omega: [roll, pitch, yaw] (rad/s)
         yaw: Radians
         NOTE: All values default to zero.
     """
