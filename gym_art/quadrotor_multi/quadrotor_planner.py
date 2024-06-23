@@ -21,6 +21,7 @@ class QuadPlanner:
             "t_begin": 0.0,
             "n_pieces": 0,
             "pieces": [poly4d(degree=self.poly_degree)]
+            # "pieces": []
         }
 
 @dataclass

@@ -27,7 +27,7 @@ class QuadTrajGen:
         """ 
         Note: Python adaptation from plan_go_to_from() of the crazyflie firmware.
         Copyright (c) 2018 Wolfgang Hoenig and James Alan Preiss
-        Modifcations by: Darren Chiu (chiudarr@usc.edu)
+        Modifcations by: Darren Chiu 
         
         Arguments:
             initial_state: [x, y, z, vx, vy, vz, roll, pitch, yaw, omega_x, omega_y, omega_z]
@@ -42,11 +42,6 @@ class QuadTrajGen:
 
         self.__piecewise_plan_7th_order_no_jerk(duration, initial_state.pos, curr_yaw, initial_state.vel, 
         initial_state.omega[2], initial_state.acc, hover_pos, goal_yaw, np.zeros(3), 0, np.zeros(3))
-
-        # self.planner.planned_trajectory["pieces"][0].poly[0] = np.array([0.000000, -0.000000, 0.000000, -0.000000, 0.830443, -0.276140, -0.384219, 0.180493])
-        # self.planner.planned_trajectory["pieces"][0].poly[1] = np.array([-0.000000, 0.000000, -0.000000, 0.000000, -1.356107, 0.688430, 0.587426, -0.329106])
-        # self.planner.planned_trajectory["pieces"][0].poly[2] = np.array([ 0, 0, 0, 0, 0, 0, 0, 0])
-        # self.planner.planned_trajectory["pieces"][0].poly[3] = np.array([ 0, 0, 0, 0, 0, 0, 0, 0])
 
         self.planner.planned_trajectory["t_begin"] = current_time
 
@@ -239,7 +234,7 @@ if __name__ == "__main__":
     # Begining time of episode in seconds
     t = 0.0 
     # Duration needed to complete trajectory in seconds
-    duration = 2.5
+    duration = 5.0
 
     # Create an instance goal point for the initial state. 
     initial_state = traj_eval()
@@ -253,25 +248,25 @@ if __name__ == "__main__":
     total_traj = [initial_state]
     traj_gen.plan_go_to_from(initial_state=initial_state, desired_state=goal_state, duration=duration, current_time=t)
     
-    sim_time = 5
+    sim_time = 11
+
     # Get setpoint loops. This can be understood as the simulation steps.
     while(t < sim_time):  
 
         t += 0.1
         # Evaluate the next goal point based on the current simulation time (in seconds).
         next_goal = traj_gen.piecewise_eval(t)
-        print(next_goal.omega)
+
         # We can also replan during the simulation. 
         # NOTE: THIS SHOULD ONLY BE CALLED AFTER THE PREVIOUS PLAN HAS FINISHED.
-        # if (traj_gen.plan_finished(t)):
-        #     traj_gen.plan_go_to_from(initial_state=next_goal, desired_state=[0, 0, 0.65, 0], duration=duration, current_time=t)
-        #     plan_stale = False
+        if (traj_gen.plan_finished(t)):
+            traj_gen.plan_go_to_from(initial_state=next_goal, desired_state=[0, 0, 0.65, 0], duration=duration, current_time=t)
+            plan_stale = False
 
     print("Final State: ", total_traj[-1])
 
 
     fig, axs = plt.subplots(3)
-
 
     x = []
     y = []
@@ -296,7 +291,7 @@ if __name__ == "__main__":
     axs[0].plot(x, label="x")
     axs[0].plot(y, label="y")
     axs[0].plot(z, label="z")
-    plt.legend()
+    axs[0].legend()
     axs[1].plot(vx)
     axs[1].plot(vy)
     axs[1].plot(vz)
