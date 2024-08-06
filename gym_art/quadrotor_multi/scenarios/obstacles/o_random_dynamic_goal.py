@@ -18,7 +18,7 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         self.goal_generator = [QuadTrajGen(poly_degree=7) for i in range(num_agents)]
         self.start_point = [np.zeros(3) for i in range(num_agents)]
         self.end_point = [np.zeros(3) for i in range(num_agents)]
-        
+
         # The velocity of the trajectory is sampled from a normal distribution
         self.vel_mean = 0.35
         self.vel_std = 0.15

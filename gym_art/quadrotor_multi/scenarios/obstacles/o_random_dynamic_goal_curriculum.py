@@ -5,6 +5,7 @@ import copy
 from gym_art.quadrotor_multi.scenarios.obstacles.o_base import Scenario_o_base
 from gym_art.quadrotor_multi.quadrotor_traj_gen import QuadTrajGen
 from gym_art.quadrotor_multi.quadrotor_planner import traj_eval
+
 from sample_factory.envs.env_utils import TrainingInfoInterface
 
 class Scenario_o_random_dynamic_goal_curriculum(Scenario_o_base, TrainingInfoInterface):
@@ -80,7 +81,6 @@ class Scenario_o_random_dynamic_goal_curriculum(Scenario_o_base, TrainingInfoInt
             final_goal[2] = 0.65
             
             dist = np.linalg.norm(self.start_point[i] - final_goal)
-
             traj_speed = np.random.normal(self.vel_mean, self.vel_std)
             
             if (traj_speed < 0.25):

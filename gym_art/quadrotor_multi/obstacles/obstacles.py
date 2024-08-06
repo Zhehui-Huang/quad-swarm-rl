@@ -33,9 +33,10 @@ class MultiObstacles:
                                               quads_sdf_obs=quads_sdf_obs, obst_radius=self.obstacle_radius,
                                               resolution=self.resolution)
         else:
+            noise_angles = self.scan_angle_arr + np.random.normal(loc=0, scale=self.angle_noise_std, size=self.scan_angle_arr.shape)
             quads_sdf_obs = get_ToFs_depthmap(quad_poses=quads_pos, obst_poses=self.pos_arr,
                                               obst_radius=self.obstacle_radius, scan_max_dist=2.0,
-                                              quad_rotations=quads_rots, scan_angle_arr=self.scan_angle_arr,
+                                              quad_rotations=quads_rots, scan_angle_arr=noise_angles,
                                               fov_angle=self.fov_angle, num_rays=self.num_rays, obst_noise=self.obst_noise)
             self.prev = np.copy(quads_sdf_obs)
             self.tick = 0
@@ -53,11 +54,11 @@ class MultiObstacles:
         else:
             self.tick += 1
             if self.tick % self.sample_freq == 0:
+                noise_angles = self.scan_angle_arr + np.random.normal(loc=0, scale=self.angle_noise_std, size=self.scan_angle_arr.shape)
                 quads_sdf_obs = get_ToFs_depthmap(quad_poses=quads_pos, obst_poses=self.pos_arr,
-                                                  obst_radius=self.obstacle_radius, scan_max_dist=2.0,
-                                                  quad_rotations=quads_rots, scan_angle_arr=self.scan_angle_arr,
-                                                  fov_angle=self.fov_angle, num_rays=self.num_rays,
-                                                  obst_noise=self.obst_noise)
+                                              obst_radius=self.obstacle_radius, scan_max_dist=2.0,
+                                              quad_rotations=quads_rots, scan_angle_arr=noise_angles,
+                                              fov_angle=self.fov_angle, num_rays=self.num_rays, obst_noise=self.obst_noise)
                 self.prev = np.copy(quads_sdf_obs)
                 self.tick = 0
             else:

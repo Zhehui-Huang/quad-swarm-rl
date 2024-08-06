@@ -61,6 +61,6 @@ class Scenario_o_static_same_goal(Scenario_o_base):
         # Reassign goals
         self.spawn_points = copy.deepcopy(self.start_point)
         self.goals = copy.deepcopy(self.end_point)
-
+        
         for i, env in enumerate(self.envs):
             env.dynamic_goal = True

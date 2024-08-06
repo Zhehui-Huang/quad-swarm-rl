@@ -24,25 +24,29 @@ class Scenario_o_random(Scenario_o_base):
 
         return
 
-    def reset(self, obst_map, cell_centers):
+    def reset(self, obst_map, cell_centers, sim2real_scenario=None):
         self.obstacle_map = obst_map
         self.cell_centers = cell_centers
         if obst_map is None:
             raise NotImplementedError
 
-        obst_map_locs = np.where(self.obstacle_map == 0)
-        self.free_space = list(zip(*obst_map_locs))
+        if sim2real_scenario is None:
+            obst_map_locs = np.where(self.obstacle_map == 0)
+            self.free_space = list(zip(*obst_map_locs))
 
-        self.start_point = []
-        self.end_point = []
-        for i in range(self.num_agents):
-            self.start_point.append(self.generate_pos_obst_map())
-            self.end_point.append(self.generate_pos_obst_map())
+            self.start_point = []
+            self.end_point = []
+            for i in range(self.num_agents):
+                self.start_point.append(self.generate_pos_obst_map())
+                self.end_point.append(self.generate_pos_obst_map())
 
-        self.start_point = self.generate_pos_obst_map_2(num_agents=self.num_agents)
-        self.end_point = self.generate_pos_obst_map_2(num_agents=self.num_agents)
-        for i in range(len(self.end_point)):
-            self.end_point[i][2] = 0.65
+            self.start_point = self.generate_pos_obst_map_2(num_agents=self.num_agents)
+            self.end_point = self.generate_pos_obst_map_2(num_agents=self.num_agents)
+            for i in range(len(self.end_point)):
+                self.end_point[i][2] = 0.65
+        else:
+            self.start_point = [[-1.25, 0.25, 0.65]]
+            self.end_point = [[2.75, 0.25, 0.65]]
         # self.start_point = self.generate_pos_obst_map_2(self.num_agents)
         # self.end_point = self.generate_pos_obst_map_2(self.num_agents)
 
