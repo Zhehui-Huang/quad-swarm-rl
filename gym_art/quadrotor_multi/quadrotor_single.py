@@ -346,7 +346,6 @@ class QuadrotorSingle:
             "vxyzr": [-self.dynamics.vxyz_max * np.ones(3), self.dynamics.vxyz_max * np.ones(3)],
             "acc": [-self.dynamics.acc_max * np.ones(3), self.dynamics.acc_max * np.ones(3)],
             "R": [-np.ones(9), np.ones(9)],
-            "yaw": [-3.14 * np.ones(1), 3.14 * np.ones(1)],
             "omega": [-self.dynamics.omega_max * np.ones(3), self.dynamics.omega_max * np.ones(3)],
             "t2w": [0. * np.ones(1), 5. * np.ones(1)],
             "t2t": [0. * np.ones(1), 1. * np.ones(1)],

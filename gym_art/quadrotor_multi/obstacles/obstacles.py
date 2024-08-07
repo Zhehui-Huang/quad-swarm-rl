@@ -19,10 +19,11 @@ class MultiObstacles:
         self.angle_noise_std = 0.1
         self.prev = None
         self.tick = 0
+        self.range_max = 2.0
         if self.num_rays == 4:
             self.sample_freq = 3
         else:
-            self.sample_freq = 6
+            self.sample_freq = 7 # 14 Hz, conservative but better than 6 being 16hz.
 
     def reset(self, obs, quads_pos, pos_arr, quads_rots=None):
         self.pos_arr = copy.deepcopy(np.array(pos_arr))
@@ -35,7 +36,7 @@ class MultiObstacles:
         else:
             noise_angles = self.scan_angle_arr + np.random.normal(loc=0, scale=self.angle_noise_std, size=self.scan_angle_arr.shape)
             quads_sdf_obs = get_ToFs_depthmap(quad_poses=quads_pos, obst_poses=self.pos_arr,
-                                              obst_radius=self.obstacle_radius, scan_max_dist=2.0,
+                                              obst_radius=self.obstacle_radius, scan_max_dist=self.range_max,
                                               quad_rotations=quads_rots, scan_angle_arr=noise_angles,
                                               fov_angle=self.fov_angle, num_rays=self.num_rays, obst_noise=self.obst_noise)
             self.prev = np.copy(quads_sdf_obs)
