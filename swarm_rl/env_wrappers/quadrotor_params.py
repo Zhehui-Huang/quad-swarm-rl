@@ -18,7 +18,7 @@ def add_quadrotors_env_args(env, parser):
     # Quadrotor features
     p.add_argument('--quads_num_agents', default=8, type=int, help='Override default value for the number of quadrotors')
     p.add_argument('--quads_obs_repr', default='xyz_vxyz_R_omega', type=str,
-                   choices=['xyz_vxyz_R_omega', 'xyz_vxyz_R_omega_floor', 'xyz_vxyz_R_omega_wall', 'xyz_vxyz_yaw_omega'],
+                   choices=['xyz_vxyz_R_omega', 'xyz_vxyz_R_omega_floor', 'xyz_vxyz_R_omega_wall'],
                    help='obs space for quadrotor self')
     p.add_argument('--quads_obs_rel_rot', default=False, type=str2bool, help='use relative rotation or not')
     p.add_argument('--quads_dynamic_goal', default=True, type=str2bool, help='use relative observations for all states. Only for dynamic goal scenarios.')

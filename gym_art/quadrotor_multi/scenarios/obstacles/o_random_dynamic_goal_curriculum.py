@@ -23,7 +23,7 @@ class Scenario_o_random_dynamic_goal_curriculum(Scenario_o_base, TrainingInfoInt
         self.start_point = [np.zeros(3) for i in range(num_agents)]
         self.end_point = [np.zeros(3) for i in range(num_agents)]
         
-        self.vel_mean = 0.25
+        self.vel_mean = 0.35
         self.vel_std = 0.1
 
     def step(self):
@@ -45,7 +45,7 @@ class Scenario_o_random_dynamic_goal_curriculum(Scenario_o_base, TrainingInfoInt
         
         return
 
-    def reset(self, obst_map, cell_centers): 
+    def reset(self, obst_map=None, cell_centers=None, sim2real_scenario=False): 
         
         approx_total_training_steps = self.training_info.get('approx_total_training_steps', 0)
 

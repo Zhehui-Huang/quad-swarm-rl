@@ -1,5 +1,6 @@
 import numpy as np
 from numba import njit
+import math
 
 from gym_art.quadrotor_multi.quad_utils import EPS
 from gym_art.quadrotor_multi.collisions.utils import compute_new_vel, compute_new_omega

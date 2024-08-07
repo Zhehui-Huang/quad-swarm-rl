@@ -22,7 +22,7 @@ class Scenario_o_static_same_goal(Scenario_o_base):
         # Goal point does not change, so we just pass by step.
         return
 
-    def reset(self, obst_map=None, cell_centers=None):
+    def reset(self, obst_map=None, cell_centers=None, sim2real_scenario=False):
         self.obstacle_map = obst_map
         self.cell_centers = cell_centers
         
@@ -53,7 +53,7 @@ class Scenario_o_static_same_goal(Scenario_o_base):
             self.goal_generator[i].plan_go_to_from(initial_state=initial_state, desired_state=np.append(final_goal, goal_yaw), 
                                                    duration=traj_duration, current_time=0)
 
-        self.end_point[i] = self.goal_generator[i].piecewise_eval(self.envs[i].ep_time).as_nparray()
+            self.end_point[i] = self.goal_generator[i].piecewise_eval(self.envs[i].ep_time).as_nparray()
 
         # Reset formation and related parameters
         self.update_formation_and_relate_param()
