@@ -6,13 +6,19 @@ GRAV = 9.81
 
 
 class CollectiveThrustBodyRate(object):
+    """
+    Collective Thrust and Body Rate Controller.
+    """
     def __init__(self, dynamics, dynamics_params):
-
-        self.arm_length = dynamics_params["geom"]['arms']['l']
-        self.I_matrix = np.diag(dynamics.inertia)
-        
-        print(self.arm_length)
-        print(self.I_matrix)
+        self.controller_dynamics = dynamics
+        self.controller_dynamics_params = dynamics_params
+                
+    def compute_thrust_mix(self, actions, c_desired, torque_desired):
+        """
+        Compute the individual rotor thrusts given desired body rate and collective thrust. 
+        """
+        for i in range(4):
+            actions[i] = (self.controller_dynamics.mass * c_desired) / 4
 
 # import line_profiler
 # like raw motor control, but shifted such that a zero action
