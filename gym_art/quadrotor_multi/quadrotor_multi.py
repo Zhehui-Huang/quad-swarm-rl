@@ -19,6 +19,8 @@ from gym_art.quadrotor_multi.quadrotor_multi_visualization import Quadrotor3DSce
 from gym_art.quadrotor_multi.quadrotor_single import QuadrotorSingle
 from gym_art.quadrotor_multi.scenarios.mix import create_scenario
 
+from gym_art.quadrotor_multi.quadrotor_control import NonlinearPositionController
+
 
 class QuadrotorEnvMulti(gym.Env):
     def __init__(self, num_agents, ep_time, rew_coeff, obs_repr, obs_rel_rot, dynamic_goal,
@@ -482,7 +484,11 @@ class QuadrotorEnvMulti(gym.Env):
 
     def step(self, actions):
         obs, rewards, dones, infos = [], [], [], []
-
+        
+                    
+        for i in range(self.num_agents):
+            actions[i] = np.zeros(4)
+            
         for i, a in enumerate(actions):
             self.envs[i].rew_coeff = self.rew_coeff
 
@@ -493,7 +499,7 @@ class QuadrotorEnvMulti(gym.Env):
             infos.append(info)
 
             self.pos[i, :] = self.envs[i].dynamics.pos
-
+            
         # 1. Calculate collisions: 1) between drones 2) with obstacles 3) with room
         # 1) Collisions between drones
         drone_col_matrix, curr_drone_collisions, distance_matrix = \

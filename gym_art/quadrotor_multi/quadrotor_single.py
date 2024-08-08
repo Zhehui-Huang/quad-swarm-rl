@@ -292,6 +292,8 @@ class QuadrotorSingle:
 
         # Make observation space
         self.observation_space = self.make_observation_space()
+        
+        self.low_level_controller = CollectiveThrustBodyRate(dynamics=self.dynamics, dynamics_params=self.dynamics_params)
 
         self._seed()
 

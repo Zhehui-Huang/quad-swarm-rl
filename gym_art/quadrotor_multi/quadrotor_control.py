@@ -5,6 +5,15 @@ from gym_art.quadrotor_multi.quad_utils import *
 GRAV = 9.81
 
 
+class CollectiveThrustBodyRate(object):
+    def __init__(self, dynamics, dynamics_params):
+
+        self.arm_length = dynamics_params["geom"]['arms']['l']
+        self.I_matrix = np.diag(dynamics.inertia)
+        
+        print(self.arm_length)
+        print(self.I_matrix)
+
 # import line_profiler
 # like raw motor control, but shifted such that a zero action
 # corresponds to the amount of thrust needed to hover.
@@ -280,7 +289,7 @@ class NonlinearPositionController(object):
     # modifies the dynamics in place.
     # @profile
     def step(self, dynamics, goal, dt, action=None, observation=None):
-        to_goal = goal - dynamics.pos
+        to_goal = goal[0:3] - dynamics.pos
         # goal_dist = np.sqrt(np.cumsum(np.square(to_goal)))[2]
         goal_dist = (to_goal[0] ** 2 + to_goal[1] ** 2 + to_goal[2] ** 2) ** 0.5
         ##goal_dist = norm(to_goal)
