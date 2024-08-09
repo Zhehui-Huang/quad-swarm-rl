@@ -484,14 +484,12 @@ class QuadrotorEnvMulti(gym.Env):
 
     def step(self, actions):
         obs, rewards, dones, infos = [], [], [], []
-        
-        # Insert CTRB controller here
-        
+
         for i, a in enumerate(actions):
-            # print(actions[i])
-            # self.envs[i].low_level_controller.compute_thrust_mix(actions[i], )
-            
-            # actions[i] = -1 * np.ones(4)
+            actions[i] = self.envs[i].low_level_controller.compute_thrust_mix(self.envs[i].goal)
+
+            # actions[i] = np.clip(actions[i], a_min=-np.ones(4), a_max=np.ones(4))
+            # actions[i] = 0.5 * (actions[i] + 1.0)
             
             self.envs[i].rew_coeff = self.rew_coeff
 

@@ -208,6 +208,7 @@ class QuadrotorDynamics:
         return pos, vel, rot, omega
 
     def step(self, thrust_cmds, dt):
+        print("Thrust Dynamics Pre: ", thrust_cmds)
         thrust_noise = self.thrust_noise.noise()
 
         if self.use_numba:
@@ -503,6 +504,7 @@ def calculate_torque_integrate_rotations_and_update_omega(
         motor_linearity, prop_crossproducts, torque_max, prop_ccw, rot, omega, dt, since_last_svd, since_last_svd_limit,
         inertia, eye, omega_max, damp_omega_quadratic, pos, vel
 ):
+    print("Thrust Torque Calc Dynamics pre: ", thrust_cmds)
     # Filtering the thruster and adding noise
     thrust_cmds = np.clip(thrust_cmds, 0., 1.)
     motor_tau = motor_tau_up * np.ones(4)

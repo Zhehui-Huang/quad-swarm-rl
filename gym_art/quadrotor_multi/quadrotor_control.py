@@ -13,36 +13,91 @@ class CollectiveThrustBodyRate(object):
     def __init__(self, dynamics, dynamics_params):
         self.controller_dynamics = dynamics
         self.controller_dynamics_params = dynamics_params
-        self.naive = True
+        
+        self.naive = True # Set true if not using feed forward.
+        self.use_NN = True # Set to true if we want to use a CT and BR generated from NN.
+        
+        self.J = np.diag(self.controller_dynamics.inertia)
+        
+        self.current_goal = None
+        self.current_thrust = np.zeros(4)
+        self.thrust_max = self.controller_dynamics.thrust_max # units of N
+        
+        # self.A_dynamics = np.array([[c*l, -c*l, -c*l, c*l],
+        #             [-c*l, -c*l, c*l, c*l],
+        #             [k, k, k, k]])
         
         # LQR Gains
-        self.kwxy = 1
-        self.kwxy = 1
-        self.kwz = 1
+        self.kwxy = 0.001
+        self.kwxy = 0.001
+        self.kwz = 0.001
         
-        self.knxy = 1
-        self.kxy = 1
-        self.knz = 1
+        self.knxy = 0.001
+        self.kxy = 0.001
+        self.knz = 0.001
         
         # LQR Gain Matrix
         self.K_lqr =np.array([[self.kwxy, 0, 0, self.knxy, 0, 0],
                          [0, self.kwxy, 0, 0, self.knxy, 0],
                          [0, 0, self.kwz, 0, 0, self.knz]])
         
-        self.w_des = np.array([0.0, 0.0, 0.0]) # N 
+        self.w_des = np.array([0.0, 0.0, 0.0]) # N
         
-        self.current_thrust = np.array([0. ,0., 0., 0.])
-        self.current_body_torque = np.array([0., 0., 0.])
+    def compute_thrust_mix(self, goal):
+        """
+        Compute the individual rotor thrusts given desired body torque and collective thrust. 
+        """
+        self.current_goal = goal
+        
+        torque_desired = self.compute_desired_torque()
+        
+        # Collective thrust = Z_body * (acc + g * Z_world)
+
+        c_desired = np.dot(self.controller_dynamics.rot[:, 2], (self.controller_dynamics.accelerometer))
+        # np.array([0., 0., self.controller_dynamics.gravity]))
+        # The naive implementation assumes that
+        l = self.controller_dynamics_params["geom"]["body"]["l"]
+        c = math.sqrt(2)/2
+        k = self.controller_dynamics_params["motor"]["torque_to_thrust"]
+        m = self.controller_dynamics.mass
+        # print("Mass: ", m)
+        if (self.naive):
+            # no feedforward and no thrust mixing
+            A = np.array([[c*l, -c*l, -c*l, c*l],
+                 [-c*l, -c*l, c*l, c*l],
+                 [k, -k, k, -k],
+                 [1/m, 1/m, 1/m, 1/m]])
+            # print("A Matrix: ", A)
+            A_inv = np.linalg.inv(A)
+            # print("Desired Torque: ", torque_desired)
+            # print("Desired Thrust: ", c_desired)
+
+            desired_states = np.append(torque_desired, c_desired)
+            # print("Desired State: ", desired_states)
+            # print("A inverse: ", A_inv)
+            actions = A_inv @ desired_states
+            
+            # actions = ((m*c_desired) / 4) * np.ones(4)
+            
+        else:
+            #Initialiaze thrusts
+            for i in range(4):
+                actions[i] = (self.controller_dynamics.mass * c_desired) / 4
+        # self.normalize_thrust()
+        self.current_thrust = actions
+        print("Desired Thrust: ", actions)
+        
+        return actions
         
     def set_desired_body_rate(self, goal):
         self.w_des[0] = goal[9]
         self.w_des[1] = goal[10]
         self.w_des[2] = goal[11]
         
-    def update_current_thrust(self, thrust_vector):
-        self.current_thrust = thrust_vector
-        
     def compute_body_torque(self):
+        """
+        Compute desired body torque.
+        """
         l = self.controller_dynamics_params["geom"]["body"]["l"]
         c = math.sqrt(2)/2
         k = self.controller_dynamics_params["motor"]["torque_to_thrust"]
@@ -50,61 +105,61 @@ class CollectiveThrustBodyRate(object):
         # Use individual motor thrusts to calculate body torque
         A = np.array([[c*l, -c*l, -c*l, c*l],
                     [-c*l, -c*l, c*l, c*l],
-                    [k, k, k, k]])
-        self.current_body_torque = np.dot(A, self.current_thrust)
-        
-    def compute_desired_torque(self, goal, body_rate, thrust_vector):
-        J = self.controller_dynamics.inertia
+                    [k, -k, k, -k]])
+        return np.dot(A, self.current_thrust)
         
         
-        self.set_desired_body_rate(goal)
+    def compute_desired_torque(self):
+        """
+        This is basically the LQR controller.
+        """
+        body_rate = np.array([self.controller_dynamics.omega[0], self.controller_dynamics.omega[1], self.controller_dynamics.omega[2]])
         
-        self.update_current_thrust(thrust_vector=thrust_vector)
-        self.compute_body_torque(self)
+        self.set_desired_body_rate(self.current_goal)
+
+        current_body_torque = self.compute_body_torque()
         
         # Compute Desired body torque from dynamics
-        n_ref = np.cross(self.w_des, np.dot(self.controller_dynamics.inertia, self.w_des))
-        
-        error_vector = np.array([self.w_des - body_rate, n_ref - self.current_body_torque])
-        
+
+        n_ref = np.cross(self.w_des, (self.J @ self.w_des.T))
+        # print("w_des: ", self.w_des)
+        # print("Body Rate: ", body_rate)
+        # print("n_ref: ", n_ref)
+        # print("Body Torque: ", current_body_torque)
+        # print("Rate Error: ", n_ref - current_body_torque)
+        error_vector = np.concatenate([(self.w_des - body_rate), (n_ref - current_body_torque)])
+        # 
         # This calculation does not use the feedforward.
         # TODO: Add in first order differentiation for feeforward from Goal point.
-        n_des = np.dot(self.K_lqr, np.transpose(error_vector)) + np.cross(np.transpose(body_rate), 
-                                                                          np.dot(J, body_rate))
-
+        # print("Error vector: ", error_vector.T)
+        # print("Dot: ", self.J @ body_rate.T)
+        feedforward = np.cross(np.transpose(body_rate), (self.J @ body_rate.T))
+        n_des = np.dot(self.K_lqr, np.transpose(error_vector))
+        # print("Torque Desired:  ", n_des)
         return n_des
     
-    def compute_thrust_mix(self, thrust_vector, goal, body_rate):
+    def normalize_thrust(self):
         """
-        Compute the individual rotor thrusts given desired body rate and collective thrust. 
+        Since we calculate raw thrust in Newtons, we need to normalize to the max thrust of the crazyflie. 
         """
-        torque_desired = self.compute_desired_torque(goal, body_rate, thrust_vector)
+        motor_linearity = self.controller_dynamics_params["motor"]["linearity"]
+        self.current_thrust= self.thrust_max * self.angvel2thrust(self.current_thrust, motor_linearity)
         
-        # The naive implementation assumes that
-        l = self.controller_dynamics_params["geom"]["body"]["l"]
-        c = math.sqrt(2)/2
-        k = self.controller_dynamics_params["motor"]["torque_to_thrust"]
-        m = self.controller_dynamics.mass
-        if (self.Naive):
-            # no feedforward and no thrust mixing
-            A = np.array([[c*l, -c*l, -c*l, c*l],
-                 [-c*l, -c*l, c*l, c*l],
-                 [k, k, k, k],
-                 [1/m, 1/m, 1/m, 1/m]])
-            A_inv = np.linalg.inv(A)
-            desired_states = np.transpose(np.array([torque_desired, c_desired]))
-            
-            actions = np.dot(A_inv, desired_states)
-            
-        else:
-            #Initialiaze thrusts
-            for i in range(4):
-                actions[i] = (self.controller_dynamics.mass * c_desired) / 4
-        
-        return actions
+    def angvel2thrust(self, w, linearity=0.424):
+        """
+        CrazyFlie: linearity=0.424
+        Args:
+            w: thrust_cmds_damp
+            linearity (float): linearity factor factor [0 .. 1].
+        """
+        return (1 - linearity) * w ** 2 + linearity * w
+    def print_dynamics(self):
+        print(self.controller_dynamics.rot)
+        print(self.controller_dynamics.omega)
+        print(self.controller_dynamics.thrust_vector)
             
             
-            
+    
 
 # import line_profiler
 # like raw motor control, but shifted such that a zero action
@@ -136,7 +191,7 @@ class RawControl(object):
         self.step_func = self.step
 
     def action_space(self, dynamics):
-        if not self.zero_action_middle:
+        if not self.zero_action_middle:      
             # Range of actions 0 .. 1
             self.low = np.zeros(4)
             self.bias = 0.0
@@ -152,8 +207,10 @@ class RawControl(object):
     # modifies the dynamics in place.
     # @profile
     def step(self, dynamics, action, goal, dt, observation=None):
+        print("Thrust Control Pre: ", action)
         action = np.clip(action, a_min=self.low, a_max=self.high)
         action = self.scale * (action + self.bias)
+        print("action in control step: ", action)
         dynamics.step(action, dt)
         self.action = action.copy()
 
