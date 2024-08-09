@@ -90,6 +90,8 @@ class QuadrotorDynamics:
             self.control_mx = np.eye(4)
         else:
             raise ValueError('QuadEnv: Unknown dimensionality mode %s' % self.dim_mode)
+        
+        self.thrust_vector = np.zeros(4)
 
     @staticmethod
     def angvel2thrust(w, linearity=0.424):
@@ -246,6 +248,7 @@ class QuadrotorDynamics:
         self.thrust_cmds_damp = np.clip(self.thrust_cmds_damp + thrust_noise, 0.0, 1.0)
 
         thrusts = self.thrust_max * self.angvel2thrust(self.thrust_cmds_damp, linearity=self.motor_linearity)
+        
         # Prop crossproduct give torque directions
         self.torques = self.prop_crossproducts * thrusts[:, None]  # (4,3)=(props, xyz)
 
@@ -347,7 +350,7 @@ class QuadrotorDynamics:
 
     def step1_numba(self, thrust_cmds, dt, thrust_noise):
         self.thrust_rot_damp, self.thrust_cmds_damp, self.torques, self.torque, self.rot, self.since_last_svd, \
-            self.omega_dot, self.omega, self.pos, thrust, rotor_drag_force, self.vel = \
+            self.omega_dot, self.omega, self.pos, thrust, rotor_drag_force, self.vel, self.thrust_vector = \
             calculate_torque_integrate_rotations_and_update_omega(
                 thrust_cmds=thrust_cmds, motor_tau_up=self.motor_tau_up, motor_tau_down=self.motor_tau_down,
                 thrust_cmds_damp=self.thrust_cmds_damp, thrust_rot_damp=self.thrust_rot_damp, thr_noise=thrust_noise,
@@ -515,7 +518,8 @@ def calculate_torque_integrate_rotations_and_update_omega(
     thrust_noise = thrust_cmds * thr_noise
     thrust_cmds_damp = np.clip(thrust_cmds_damp + thrust_noise, 0.0, 1.0)
     thrusts = thrust_max * angvel2thrust_numba(thrust_cmds_damp, motor_linearity)
-
+    thrust_vector = thrusts 
+    
     # Prop cross-product gives torque directions
     torques = prop_crossproducts * np.reshape(thrusts, (-1, 1))
 
@@ -563,7 +567,7 @@ def calculate_torque_integrate_rotations_and_update_omega(
     pos = pos + dt * vel
 
     return thrust_rot_damp, thrust_cmds_damp, torques, torque, rot, since_last_svd, omega_dot, omega, pos, thrust, \
-        rotor_drag_force, vel
+        rotor_drag_force, vel, thrust_vector
 
 
 @njit

@@ -1,4 +1,5 @@
-from numpy.linalg import norm
+from numpy.linalg import norm, inv
+import math
 from gymnasium import spaces
 from gym_art.quadrotor_multi.quad_utils import *
 
@@ -12,13 +13,98 @@ class CollectiveThrustBodyRate(object):
     def __init__(self, dynamics, dynamics_params):
         self.controller_dynamics = dynamics
         self.controller_dynamics_params = dynamics_params
-                
-    def compute_thrust_mix(self, actions, c_desired, torque_desired):
+        self.naive = True
+        
+        # LQR Gains
+        self.kwxy = 1
+        self.kwxy = 1
+        self.kwz = 1
+        
+        self.knxy = 1
+        self.kxy = 1
+        self.knz = 1
+        
+        # LQR Gain Matrix
+        self.K_lqr =np.array([[self.kwxy, 0, 0, self.knxy, 0, 0],
+                         [0, self.kwxy, 0, 0, self.knxy, 0],
+                         [0, 0, self.kwz, 0, 0, self.knz]])
+        
+        self.w_des = np.array([0.0, 0.0, 0.0]) # N 
+        
+        self.current_thrust = np.array([0. ,0., 0., 0.])
+        self.current_body_torque = np.array([0., 0., 0.])
+        
+    def set_desired_body_rate(self, goal):
+        self.w_des[0] = goal[9]
+        self.w_des[1] = goal[10]
+        self.w_des[2] = goal[11]
+        
+    def update_current_thrust(self, thrust_vector):
+        self.current_thrust = thrust_vector
+        
+    def compute_body_torque(self):
+        l = self.controller_dynamics_params["geom"]["body"]["l"]
+        c = math.sqrt(2)/2
+        k = self.controller_dynamics_params["motor"]["torque_to_thrust"]
+        
+        # Use individual motor thrusts to calculate body torque
+        A = np.array([[c*l, -c*l, -c*l, c*l],
+                    [-c*l, -c*l, c*l, c*l],
+                    [k, k, k, k]])
+        self.current_body_torque = np.dot(A, self.current_thrust)
+        
+    def compute_desired_torque(self, goal, body_rate, thrust_vector):
+        J = self.controller_dynamics.inertia
+        
+        
+        self.set_desired_body_rate(goal)
+        
+        self.update_current_thrust(thrust_vector=thrust_vector)
+        self.compute_body_torque(self)
+        
+        # Compute Desired body torque from dynamics
+        n_ref = np.cross(self.w_des, np.dot(self.controller_dynamics.inertia, self.w_des))
+        
+        error_vector = np.array([self.w_des - body_rate, n_ref - self.current_body_torque])
+        
+        # This calculation does not use the feedforward.
+        # TODO: Add in first order differentiation for feeforward from Goal point.
+        n_des = np.dot(self.K_lqr, np.transpose(error_vector)) + np.cross(np.transpose(body_rate), 
+                                                                          np.dot(J, body_rate))
+
+        return n_des
+    
+    def compute_thrust_mix(self, thrust_vector, goal, body_rate):
         """
         Compute the individual rotor thrusts given desired body rate and collective thrust. 
         """
-        for i in range(4):
-            actions[i] = (self.controller_dynamics.mass * c_desired) / 4
+        torque_desired = self.compute_desired_torque(goal, body_rate, thrust_vector)
+        
+        # The naive implementation assumes that
+        l = self.controller_dynamics_params["geom"]["body"]["l"]
+        c = math.sqrt(2)/2
+        k = self.controller_dynamics_params["motor"]["torque_to_thrust"]
+        m = self.controller_dynamics.mass
+        if (self.Naive):
+            # no feedforward and no thrust mixing
+            A = np.array([[c*l, -c*l, -c*l, c*l],
+                 [-c*l, -c*l, c*l, c*l],
+                 [k, k, k, k],
+                 [1/m, 1/m, 1/m, 1/m]])
+            A_inv = np.linalg.inv(A)
+            desired_states = np.transpose(np.array([torque_desired, c_desired]))
+            
+            actions = np.dot(A_inv, desired_states)
+            
+        else:
+            #Initialiaze thrusts
+            for i in range(4):
+                actions[i] = (self.controller_dynamics.mass * c_desired) / 4
+        
+        return actions
+            
+            
+            
 
 # import line_profiler
 # like raw motor control, but shifted such that a zero action
