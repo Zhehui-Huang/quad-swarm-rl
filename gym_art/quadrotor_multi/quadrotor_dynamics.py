@@ -92,7 +92,7 @@ class QuadrotorDynamics:
             raise ValueError('QuadEnv: Unknown dimensionality mode %s' % self.dim_mode)
         
         self.thrust_vector = np.zeros(4)
-
+        self.torque = np.zeros(3)
     @staticmethod
     def angvel2thrust(w, linearity=0.424):
         """
@@ -249,7 +249,6 @@ class QuadrotorDynamics:
         self.thrust_cmds_damp = np.clip(self.thrust_cmds_damp + thrust_noise, 0.0, 1.0)
 
         thrusts = self.thrust_max * self.angvel2thrust(self.thrust_cmds_damp, linearity=self.motor_linearity)
-        
         # Prop crossproduct give torque directions
         self.torques = self.prop_crossproducts * thrusts[:, None]  # (4,3)=(props, xyz)
 
@@ -295,6 +294,7 @@ class QuadrotorDynamics:
         # (Square) Damping using torques (in case we would like to add damping using torques)
         # damping_torque = - 0.3 * self.omega * np.fabs(self.omega)
         self.torque = thrust_torque + rotor_visc_torque
+        print("Current Torque: ", self.torque)
         thrust = npa(0, 0, np.sum(thrusts))
 
         # ROTATIONAL DYNAMICS
@@ -504,8 +504,9 @@ def calculate_torque_integrate_rotations_and_update_omega(
         motor_linearity, prop_crossproducts, torque_max, prop_ccw, rot, omega, dt, since_last_svd, since_last_svd_limit,
         inertia, eye, omega_max, damp_omega_quadratic, pos, vel
 ):
-    print("Thrust Torque Calc Dynamics pre: ", thrust_cmds)
+    # print("Thrust Torque Calc Dynamics pre: ", type(thrust_cmds))
     # Filtering the thruster and adding noise
+    thrust_raw = thrust_cmds
     thrust_cmds = np.clip(thrust_cmds, 0., 1.)
     motor_tau = motor_tau_up * np.ones(4)
     motor_tau[thrust_cmds < thrust_cmds_damp] = np.array(motor_tau_down)
@@ -515,19 +516,22 @@ def calculate_torque_integrate_rotations_and_update_omega(
     thrust_rot = thrust_cmds ** 0.5
     thrust_rot_damp = motor_tau * (thrust_rot - thrust_rot_damp) + thrust_rot_damp
     thrust_cmds_damp = thrust_rot_damp ** 2
-
+    
     # Adding noise
     thrust_noise = thrust_cmds * thr_noise
     thrust_cmds_damp = np.clip(thrust_cmds_damp + thrust_noise, 0.0, 1.0)
     thrusts = thrust_max * angvel2thrust_numba(thrust_cmds_damp, motor_linearity)
+    
+    thrusts = thrust_raw
     thrust_vector = thrusts 
+    thrust_cmds_damp = thrust_raw
     
     # Prop cross-product gives torque directions
     torques = prop_crossproducts * np.reshape(thrusts, (-1, 1))
 
     # Additional torques along z-axis caused by propeller rotations
     torques[:, 2] += torque_max * prop_ccw * thrust_cmds_damp
-
+    torques[:, 2] += torque_max * prop_ccw * thrust_raw
     # Net torque: sum over propellers
     thrust_torque = np.sum(torques, 0)
 

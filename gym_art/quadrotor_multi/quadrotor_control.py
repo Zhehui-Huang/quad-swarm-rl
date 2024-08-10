@@ -22,19 +22,19 @@ class CollectiveThrustBodyRate(object):
         self.current_goal = None
         self.current_thrust = np.zeros(4)
         self.thrust_max = self.controller_dynamics.thrust_max # units of N
-        
+        print("CF Thrust Max: ", self.thrust_max)
         # self.A_dynamics = np.array([[c*l, -c*l, -c*l, c*l],
         #             [-c*l, -c*l, c*l, c*l],
         #             [k, k, k, k]])
         
         # LQR Gains
-        self.kwxy = 0.001
-        self.kwxy = 0.001
-        self.kwz = 0.001
+        self.kwxy = 0.01
+        self.kwxy = 0.01
+        self.kwz = 0.01
         
-        self.knxy = 0.001
-        self.kxy = 0.001
-        self.knz = 0.001
+        self.knxy = 0.01
+        self.kxy = 0.01
+        self.knz = 0.01
         
         # LQR Gain Matrix
         self.K_lqr =np.array([[self.kwxy, 0, 0, self.knxy, 0, 0],
@@ -53,12 +53,12 @@ class CollectiveThrustBodyRate(object):
         
         # Collective thrust = Z_body * (acc + g * Z_world)
 
-        c_desired = np.dot(self.controller_dynamics.rot[:, 2], (self.controller_dynamics.accelerometer))
-        # np.array([0., 0., self.controller_dynamics.gravity]))
+        c_desired = self.controller_dynamics.rot[:, 2] @ self.controller_dynamics.accelerometer
+        print("Desired Collective Thrust: ", c_desired)
         # The naive implementation assumes that
         l = self.controller_dynamics_params["geom"]["body"]["l"]
         c = math.sqrt(2)/2
-        k = self.controller_dynamics_params["motor"]["torque_to_thrust"]
+        k = 1/self.controller_dynamics_params["motor"]["torque_to_thrust"]
         m = self.controller_dynamics.mass
         # print("Mass: ", m)
         if (self.naive):
@@ -84,10 +84,11 @@ class CollectiveThrustBodyRate(object):
             for i in range(4):
                 actions[i] = (self.controller_dynamics.mass * c_desired) / 4
         # self.normalize_thrust()
+        normalized_thrusts = (actions)/(self.thrust_max)
         self.current_thrust = actions
         print("Desired Thrust: ", actions)
         
-        return actions
+        return normalized_thrusts
         
     def set_desired_body_rate(self, goal):
         self.w_des[0] = goal[9]
@@ -118,14 +119,14 @@ class CollectiveThrustBodyRate(object):
         self.set_desired_body_rate(self.current_goal)
 
         current_body_torque = self.compute_body_torque()
-        
+        current_body_torque = self.controller_dynamics.torque
         # Compute Desired body torque from dynamics
 
-        n_ref = np.cross(self.w_des, (self.J @ self.w_des.T))
+        n_ref = np.cross(self.w_des, (self.J @ self.w_des))
         # print("w_des: ", self.w_des)
         # print("Body Rate: ", body_rate)
         # print("n_ref: ", n_ref)
-        # print("Body Torque: ", current_body_torque)
+        print("Body Torque Control: ", current_body_torque)
         # print("Rate Error: ", n_ref - current_body_torque)
         error_vector = np.concatenate([(self.w_des - body_rate), (n_ref - current_body_torque)])
         # 
@@ -222,6 +223,10 @@ class RawControl(object):
         dynamics.step(action, dt)
         self.action = action.copy()
 
+
+    """
+    
+        """
 
 class VerticalControl(object):
     def __init__(self, dynamics, zero_action_middle=True, dim_mode="3D"):
@@ -411,7 +416,7 @@ class VelocityYawControl(object):
 class NonlinearPositionController(object):
     # @profile
     def __init__(self, dynamics, tf_control=True):
-        import tensorflow as tf
+        # import tensorflow as tf
         jacobian = quadrotor_jacobian(dynamics)
         self.Jinv = np.linalg.inv(jacobian)
         ## Jacobian inverse for our quadrotor
@@ -426,7 +431,7 @@ class NonlinearPositionController(object):
 
         self.rot_des = np.eye(3)
 
-        self.tf_control = tf_control
+        self.tf_control = False
         if tf_control:
             self.step_func = self.step_tf
             self.sess = tf.Session()
@@ -439,6 +444,7 @@ class NonlinearPositionController(object):
     # @profile
     def step(self, dynamics, goal, dt, action=None, observation=None):
         to_goal = goal[0:3] - dynamics.pos
+        print("Mellinger Step")
         # goal_dist = np.sqrt(np.cumsum(np.square(to_goal)))[2]
         goal_dist = (to_goal[0] ** 2 + to_goal[1] ** 2 + to_goal[2] ** 2) ** 0.5
         ##goal_dist = norm(to_goal)

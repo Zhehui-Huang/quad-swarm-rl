@@ -61,6 +61,7 @@ class QuadrotorEnvMulti(gym.Env):
         self.room_dims = room_dims
         self.quads_view_mode = quads_view_mode
 
+        raw_control = False
         # Generate All Quadrotors
         self.envs = []
         for i in range(self.num_agents):
@@ -486,7 +487,7 @@ class QuadrotorEnvMulti(gym.Env):
         obs, rewards, dones, infos = [], [], [], []
 
         for i, a in enumerate(actions):
-            actions[i] = self.envs[i].low_level_controller.compute_thrust_mix(self.envs[i].goal)
+            # actions[i] = self.envs[i].low_level_controller.compute_thrust_mix(self.envs[i].goal)
 
             # actions[i] = np.clip(actions[i], a_min=-np.ones(4), a_max=np.ones(4))
             # actions[i] = 0.5 * (actions[i] + 1.0)
