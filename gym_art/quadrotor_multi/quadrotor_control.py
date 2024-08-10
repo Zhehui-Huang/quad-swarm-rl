@@ -2,6 +2,7 @@ from numpy.linalg import norm, inv
 import math
 from gymnasium import spaces
 from gym_art.quadrotor_multi.quad_utils import *
+from scipy.spatial.transform import Rotation as R
 
 GRAV = 9.81
 
@@ -9,159 +10,330 @@ GRAV = 9.81
 class CollectiveThrustBodyRate(object):
     """
     Collective Thrust and Body Rate Controller.
+    NOTE: The controllers quaternion representation is [x,y,z,w] but the sim is [w,x,y,z]
     """
     def __init__(self, dynamics, dynamics_params):
+        self.step_func = self.step
         self.controller_dynamics = dynamics
         self.controller_dynamics_params = dynamics_params
         
-        self.naive = True # Set true if not using feed forward.
-        self.use_NN = True # Set to true if we want to use a CT and BR generated from NN.
+        self.J = np.diag(dynamics.inertia)
         
-        self.J = np.diag(self.controller_dynamics.inertia)
-        
-        self.current_goal = None
-        self.current_thrust = np.zeros(4)
-        self.thrust_max = self.controller_dynamics.thrust_max # units of N
-        print("CF Thrust Max: ", self.thrust_max)
-        # self.A_dynamics = np.array([[c*l, -c*l, -c*l, c*l],
-        #             [-c*l, -c*l, c*l, c*l],
-        #             [k, k, k, k]])
-        
-        # LQR Gains
-        self.kwxy = 0.01
-        self.kwxy = 0.01
-        self.kwz = 0.01
-        
-        self.knxy = 0.01
-        self.kxy = 0.01
-        self.knz = 0.01
-        
-        # LQR Gain Matrix
-        self.K_lqr =np.array([[self.kwxy, 0, 0, self.knxy, 0, 0],
-                         [0, self.kwxy, 0, 0, self.knxy, 0],
-                         [0, 0, self.kwz, 0, 0, self.knz]])
-        
-        self.w_des = np.array([0.0, 0.0, 0.0]) # N
-        
-    def compute_thrust_mix(self, goal):
-        """
-        Compute the individual rotor thrusts given desired body torque and collective thrust. 
-        """
-        self.current_goal = goal
-        
-        torque_desired = self.compute_desired_torque()
-        
-        # Collective thrust = Z_body * (acc + g * Z_world)
+        self.ARCMINUTE = math.pi / 10800.0
 
-        c_desired = self.controller_dynamics.rot[:, 2] @ self.controller_dynamics.accelerometer
-        print("Desired Collective Thrust: ", c_desired)
-        # The naive implementation assumes that
-        l = self.controller_dynamics_params["geom"]["body"]["l"]
-        c = math.sqrt(2)/2
-        k = 1/self.controller_dynamics_params["motor"]["torque_to_thrust"]
-        m = self.controller_dynamics.mass
-        # print("Mass: ", m)
-        if (self.naive):
-            # no feedforward and no thrust mixing
-            A = np.array([[c*l, -c*l, -c*l, c*l],
-                 [-c*l, -c*l, c*l, c*l],
-                 [k, -k, k, -k],
-                 [1/m, 1/m, 1/m, 1/m]])
-            # print("A Matrix: ", A)
-            A_inv = np.linalg.inv(A)
-            # print("Desired Torque: ", torque_desired)
-            # print("Desired Thrust: ", c_desired)
-
-            desired_states = np.append(torque_desired, c_desired)
-            # print("Desired State: ", desired_states)
-            # print("A inverse: ", A_inv)
-            actions = A_inv @ desired_states
+        self.arm_length = dynamics_params["geom"]["arms"]["l"]
+        self.thrust_to_torque = dynamics_params["motor"]["torque_to_thrust"]
+        
+        self.pwmToThrustA = 0.091492681
+        self.pwmToThrustB = 0.067673604
+        
+        self.control_vector = np.zeros(4) # Thrust, BodyRate_X, BodyRate_Y, BodyRate_Z
+        self.control_omega = np.zeros(3)
+        
+        self.tau_xy = 0.3
+        self.zeta_xy = 0.85 # 0.85
+        
+        self.tau_z = 0.3
+        self.zeta_z = 0.85
+        
+        self.tau_rp = 0.25
+        self.mixing_factor = 1.0
+        
+        self.tau_rp_rate = 0.015
+        self.tau_yaw_rate = 0.0075
+        
+        self.coll_min = 1
+        self.coll_max = 18
+        
+        self.thrust_reduction_fairness = 0.25
+        
+        self.omega_rp_max = 30
+        self.omega_yaw_max = 10
+        self.heuristic_rp = 12
+        self.heuristic_yaw = 5
+        
+    def step(self, dynamics, action, goal, dt, observation=None):
+        accDes = np.zeros(3)
+        
+        collCmd = 0.0
+        
+        attErrorReduced = self.qeye() #Defaults to identity quaternion
+        
+        attErrorFull = self.qeye()
+        
+        attDesiredFull = self.qeye()
+        
+        r_temp = R.from_matrix(dynamics.rot)
+        attitude = r_temp.as_quat() # Get current quad rotation as quaternion
+        
+        attitudeI = self.qinv(attitude)
+        
+        R02 = 2.0 * attitude[0] * attitude[2] + 2 * attitude[3] * attitude[1]
+        R12 = 2.0 * attitude[1] * attitude[2] - 2 * attitude[3] * attitude[0]
+        R22 = attitude[3] * attitude[3] - attitude[0] * attitude[0] - attitude[1] * attitude[1] + attitude[2] * attitude[2]
+        
+        temp1 = self.qeye()
+        temp2 = self.qeye()
+        
+        pError = goal[:3] - dynamics.pos
+        vError = goal[3:6] - dynamics.vel
+        
+        # Linear Control
+        
+        accDes[0] += 1.0 / self.tau_xy / self.tau_xy * pError[0]
+        accDes[0] += 2.0 * self.zeta_xy / self.tau_xy * vError[0]
+        accDes[0] += goal[6]
+        accDes[0] = self.constrain(accDes[0], -self.coll_max, self.coll_max)
+        
+        accDes[1] += 1.0 / self.tau_xy / self.tau_xy * pError[1]
+        accDes[1] += 2.0 * self.zeta_xy / self.tau_xy * vError[1]
+        accDes[1] += goal[7]
+        accDes[1] = self.constrain(accDes[1], -self.coll_max, self.coll_max)
+        
+        accDes[2] = dynamics.gravity
+        accDes[2] += 1.0 / self.tau_z / self.tau_z * pError[2]
+        accDes[2] += 2.0 * self.zeta_z / self.tau_z * vError[2]
+        accDes[2] += goal[8]
+        accDes[2] = self.constrain(accDes[2], -self.coll_max, self.coll_max)
+        
+        
+        # Thrust Control
+        collCmd = accDes[2] / R22
+        if (abs(collCmd) > self.coll_max):
+            x = accDes[0]
+            y = accDes[1]
+            z = accDes[2] - dynamics.gravity
+            f = self.thrust_reduction_fairness
             
-            # actions = ((m*c_desired) / 4) * np.ones(4)
+            r = 0.0
             
+            a = x**2 + y**2 + (z*f)**2
+            if (a < 0):
+                a = 0.0
+            b = 2 * z*f*((1-f)*z + dynamics.gravity)
+            c = self.coll_max**2 - ((1-f)*z + dynamics.gravity)**2
+            
+            if (c<0):
+                c = 0.0
+            if (abs(a)< 1e-6):
+                r = 0.0
+            else:
+                sqrrterm = b**2 + 4.0*a*c
+                r = (-b + math.sqrt(sqrrterm))/(2.0*a)
+                if (r < 0):
+                    r = 0.0
+                if (r > 1):
+                    r = 1.0
+                
+            accDes[0] = r*x
+            accDes[1] = r*y
+            accDes[2] = (r*f+(1-f))*z + dynamics.gravity
+        
+        collCmd = accDes[2] / R22
+        if collCmd < self.coll_min:
+            collCmd = self.coll_min
+        if collCmd > self.coll_max:
+            collCmd = self.coll_max
+        
+        zI_des = self.normalize(accDes)
+        zI_cur = self.normalize(np.array([R02, R12, R22]))
+        zI = np.array([0.0, 0.0, 1.0])
+        
+        # Reduced Attitude Control
+        
+        dotProd = np.dot(zI_cur, zI_des)
+        if (dotProd < -1):
+            dotProd = -1.0
+        if (dotProd > 1):
+            dotProd  = 1.0
+        
+        alpha = np.arcsin(dotProd)
+        
+        rotAxisI = np.zeros(3)
+        if (abs(alpha) > 1 * self.ARCMINUTE):
+            rotAxisI = self.normalize(np.cross(zI_cur, zI_des))
         else:
-            #Initialiaze thrusts
-            for i in range(4):
-                actions[i] = (self.controller_dynamics.mass * c_desired) / 4
-        # self.normalize_thrust()
-        normalized_thrusts = (actions)/(self.thrust_max)
-        self.current_thrust = actions
-        print("Desired Thrust: ", actions)
-        
-        return normalized_thrusts
-        
-    def set_desired_body_rate(self, goal):
-        self.w_des[0] = goal[9]
-        self.w_des[1] = goal[10]
-        self.w_des[2] = goal[11]
-        
-    def compute_body_torque(self):
-        """
-        Compute desired body torque.
-        """
-        l = self.controller_dynamics_params["geom"]["body"]["l"]
-        c = math.sqrt(2)/2
-        k = self.controller_dynamics_params["motor"]["torque_to_thrust"]
-        
-        # Use individual motor thrusts to calculate body torque
-        A = np.array([[c*l, -c*l, -c*l, c*l],
-                    [-c*l, -c*l, c*l, c*l],
-                    [k, -k, k, -k]])
-        return np.dot(A, self.current_thrust)
-        
-        
-    def compute_desired_torque(self):
-        """
-        This is basically the LQR controller.
-        """
-        body_rate = np.array([self.controller_dynamics.omega[0], self.controller_dynamics.omega[1], self.controller_dynamics.omega[2]])
-        
-        self.set_desired_body_rate(self.current_goal)
+            rotAxisI = np.array([1.0,1.0,0.0])
 
-        current_body_torque = self.compute_body_torque()
-        current_body_torque = self.controller_dynamics.torque
-        # Compute Desired body torque from dynamics
-
-        n_ref = np.cross(self.w_des, (self.J @ self.w_des))
-        # print("w_des: ", self.w_des)
-        # print("Body Rate: ", body_rate)
-        # print("n_ref: ", n_ref)
-        print("Body Torque Control: ", current_body_torque)
-        # print("Rate Error: ", n_ref - current_body_torque)
-        error_vector = np.concatenate([(self.w_des - body_rate), (n_ref - current_body_torque)])
-        # 
-        # This calculation does not use the feedforward.
-        # TODO: Add in first order differentiation for feeforward from Goal point.
-        # print("Error vector: ", error_vector.T)
-        # print("Dot: ", self.J @ body_rate.T)
-        feedforward = np.cross(np.transpose(body_rate), (self.J @ body_rate.T))
-        n_des = np.dot(self.K_lqr, np.transpose(error_vector))
-        # print("Torque Desired:  ", n_des)
-        return n_des
-    
-    def normalize_thrust(self):
-        """
-        Since we calculate raw thrust in Newtons, we need to normalize to the max thrust of the crazyflie. 
-        """
-        motor_linearity = self.controller_dynamics_params["motor"]["linearity"]
-        self.current_thrust= self.thrust_max * self.angvel2thrust(self.current_thrust, motor_linearity)
+        attErrorReduced[3] = np.cos(alpha / 2.0)
+        attErrorReduced[0] = np.sin(alpha / 2.0) * rotAxisI[0]
+        attErrorReduced[1] = np.sin(alpha / 2.0) * rotAxisI[1]
+        attErrorReduced[2] = np.sin(alpha / 2.0) * rotAxisI[2]
         
-    def angvel2thrust(self, w, linearity=0.424):
-        """
-        CrazyFlie: linearity=0.424
-        Args:
-            w: thrust_cmds_damp
-            linearity (float): linearity factor factor [0 .. 1].
-        """
-        return (1 - linearity) * w ** 2 + linearity * w
-    def print_dynamics(self):
-        print(self.controller_dynamics.rot)
-        print(self.controller_dynamics.omega)
-        print(self.controller_dynamics.thrust_vector)
+        if (np.sin(alpha / 2.0)) < 0:
+            rotAxisI = -1.0 * rotAxisI
+        if (np.cos(alpha / 2.0)) < 0:
+            rotAxisI = -1.0 * rotAxisI
+            attErrorReduced = -1.0 * attErrorReduced
+
+        attErrorReduced = self.qnormalize(attErrorReduced)
+        
+        # Full Attitude Control
+        dotProd = np.dot(zI, zI_des)
+        dotProd = self.constrain(dotProd, -1.0, 1.0)
+        alpha = np.arccos(dotProd)
+        
+        if (abs(alpha) > 1 * self.ARCMINUTE):
+            rotAxisI = self.normalize(np.cross(zI, zI_des))
+        else:
+            rotAxisI = np.array([1.0, 1.0, 0.0])
+       
+        attFullReqPitchRoll = np.array([np.sin(alpha / 2.0) * rotAxisI[0], 
+                                        np.sin(alpha / 2.0) * rotAxisI[1],
+                                        np.sin(alpha / 2.0) * rotAxisI[2],
+                                        np.cos(alpha / 2.0)])
+        
+        attFullReqYaw = np.array([0.0, 0.0, np.sin(goal[12]), np.cos(goal[12] / 2.0)])
+        
+        attDesiredFull = self.qqmul(attFullReqPitchRoll, attFullReqYaw)
+        
+        attErrorFull = self.qqmul(attitudeI, attDesiredFull)
+        
+        if (attErrorFull[3] < 0):
+            attErrorFull = -1.0 * attErrorFull
+            attDesiredFull = self.qqmul(attitude, attErrorFull)
+            
+        attErrorFull = self.qnormalize(attErrorFull)
+        attDesiredFull = self.qnormalize(attDesiredFull)
+        
+        
+        # Mixing Full and Reduced Control
+        attError = self.qeye()
+        
+        if (self.mixing_factor <= 0):
+            attError = attErrorReduced
+        elif (self.mixing_factor >= 1):
+            attError = attErrorFull
+        else:
+            temp1 = self.qinv(attErrorReduced)
+            temp2 = self.qnormalize(self.qqmul(temp1, attErrorFull))
+        
+            alpha = 2.0 * np.arccos(self.constrain(temp2[3], -1., 1.))
+            
+            temp1 = np.array([0., 0., 
+                            np.sin(alpha * self.mixing_factor / 2.0) * (-1.0 if temp2[2] < 0 else 1.0),
+                            np.cos(alpha * self.mixing_factor / 2.0)])
+            attError = self.qnormalize(self.qqmul(attErrorReduced, temp1))
             
             
-    
+        # Control Signals
+        self.control_omega[0] = 2.0 / self.tau_rp * attError[0]
+        self.control_omega[1] = 2.0 / self.tau_rp * attError[1]
+        self.control_omega[2] = 2.0 / self.tau_rp * attError[2] + goal[11]
+        
+        if ((self.control_omega[0] * dynamics.omega[0] < 0) and (abs(dynamics.omega[0]) > self.heuristic_rp)):
+            self.control_omega[0] = self.omega_rp_max * (-1.0 if dynamics.omega[0] < 0 else 1.0)
+            
+        if ((self.control_omega[1] * dynamics.omega[1] < 0) and (abs(dynamics.omega[1]) > self.heuristic_rp)):
+            self.control_omega[1] = self.omega_rp_max * (-1.0 if dynamics.omega[1] < 0 else 1.0)
+            
+        if ((self.control_omega[2] * dynamics.omega[2] < 0) and (abs(dynamics.omega[2]) > self.heuristic_yaw)):
+            self.control_omega[2] = self.omega_rp_max * (-1.0 if dynamics.omega[2] < 0 else 1.0)
+        
+        scaling = 1
+        scaling = max(scaling, abs(self.control_omega[0]) / self.omega_rp_max)
+        scaling = max(scaling, abs(self.control_omega[1]) / self.omega_rp_max)
+        scaling = max(scaling, abs(self.control_omega[2]) / self.omega_yaw_max)
+        
+        self.control_omega[0] /= scaling
+        self.control_omega[1] /= scaling
+        self.control_omega[2] /= scaling
+        
+        control_thrust = collCmd
+        
+        
+        ## Below line should run much faster than above. I.E we can replace control commands with the NN outputs.
+        
+        omegaErr = np.array([(self.control_omega[0] - dynamics.omega[0]) / self.tau_rp_rate,
+                             (self.control_omega[1] - dynamics.omega[1]) / self.tau_rp_rate, 
+                             (self.control_omega[2] - dynamics.omega[2]) / self.tau_yaw_rate])
 
+        control_torque = self.mvmul(self.J, omegaErr)
+        
+        self.control_vector[0] = control_thrust * dynamics.mass
+        self.control_vector[1] = control_torque[0]
+        self.control_vector[2] = control_torque[1]
+        self.control_vector[3] = control_torque[2]
+        
+        thrusts = self.compute_normalized_thrust(actions=action)
+        
+        dynamics.step(thrusts, dt)
+        self.action = thrusts.copy()
+    
+    def mvmul(self, a, v):
+        x = a[0][0] * v[0] + a[0][1] * v[1] + a[0][2] * v[2]
+        y = a[1][0] * v[0] + a[1][1] * v[1] + a[1][2] * v[2]
+        z = a[2][0] * v[0] + a[2][1] * v[1] + a[2][2] * v[2]
+        
+        return np.array([x,y,z])
+    def normalize(self, x):
+        # n = norm(x)
+        n = (x[0] ** 2 + x[1] ** 2 + x[2] ** 2) ** 0.5  # np.sqrt(np.cumsum(np.square(x)))[2]
+
+        if n < 0.00001:
+            return x, 0
+        return (1/n)*x
+        
+    def constrain(self, a, minVal, maxVal):
+        return min(maxVal, max(minVal, a))
+        
+    def qeye(self):
+        return np.array([0., 0., 0., 1.])
+    
+    def qinv(self, quat):
+        return np.array([-quat[0], -quat[1], -quat[2], quat[3]])
+    
+    def qnormalize(self, quat):
+        # Normalize for precision
+        s = 1.0 / math.sqrt(np.dot(quat,quat))
+        return s * quat
+    
+    def qqmul(self, q, p):
+
+        x = q[3]*p[0] + q[2]*p[1] - q[1]*p[2] + q[0]*p[3]
+        y = -q[2]*p[0] + q[3]*p[1] + q[0]*p[2] + q[1]*p[3]
+        z = q[1]*p[0] - q[0]*p[1] + q[3]*p[2] + q[2]*p[3]
+        w = -q[0]*p[0] - q[1]*p[1] - q[2]*p[2] + q[3]*p[3]
+        
+        return np.array([x,y,z,w])
+    
+    def compute_normalized_thrust(self, actions):
+        
+        arm = 0.707106781 * self.arm_length;
+        rollPart = 0.25 / arm * self.control_vector[1]; # Torque X
+        pitchPart = 0.25 / arm * self.control_vector[2]; # Torque Y
+        thrustPart = 0.25 * self.control_vector[0]
+        yawPart = 0.25 * self.control_vector[3] / self.thrust_to_torque;
+        
+        actions[0] = thrustPart - rollPart - pitchPart - yawPart
+        actions[1] = thrustPart - rollPart + pitchPart + yawPart
+        actions[2] = thrustPart + rollPart + pitchPart - yawPart
+        actions[3] = thrustPart + rollPart - pitchPart + yawPart
+        
+        actions[actions < 0] = 0
+        actions[actions > 1] = 1
+        
+        # for i in range(4):
+        #     action = actions[i]
+        #     if (action < 0.0):
+        #         action = 0.0
+        #     motor_pwm = (-self.pwmToThrustB + math.sqrt(self.pwmToThrustB * self.pwmToThrustB + 4.0 * self.pwmToThrustA * action)) / (2.0 * self.pwmToThrustA)
+        #     normalized_actions[i] = motor_pwm
+        #     # actions[i] = action
+
+        # normalized_actions = np.clip(normalized_actions, a_min=-np.ones(4), a_max=np.ones(4))
+        # normalized_actions = 0.5* (normalized_actions + 1.0)
+        # print(normalized_actions)
+        return actions
+    def action_space(self, dynamics):
+        circle_per_sec = 2 * np.pi
+        max_rp = 5 * circle_per_sec
+        max_yaw = 1 * circle_per_sec
+        min_g = -1.0
+        max_g = dynamics.thrust_to_weight - 1.0
+        low = np.array([min_g, -max_rp, -max_rp, -max_yaw])
+        high = np.array([max_g, max_rp, max_rp, max_yaw])
+        return spaces.Box(low, high, dtype=np.float32)
 # import line_profiler
 # like raw motor control, but shifted such that a zero action
 # corresponds to the amount of thrust needed to hover.
@@ -208,10 +380,8 @@ class RawControl(object):
     # modifies the dynamics in place.
     # @profile
     def step(self, dynamics, action, goal, dt, observation=None):
-        print("Thrust Control Pre: ", action)
         action = np.clip(action, a_min=self.low, a_max=self.high)
         action = self.scale * (action + self.bias)
-        print("action in control step: ", action)
         dynamics.step(action, dt)
         self.action = action.copy()
 
@@ -223,10 +393,6 @@ class RawControl(object):
         dynamics.step(action, dt)
         self.action = action.copy()
 
-
-    """
-    
-        """
 
 class VerticalControl(object):
     def __init__(self, dynamics, zero_action_middle=True, dim_mode="3D"):
@@ -444,7 +610,6 @@ class NonlinearPositionController(object):
     # @profile
     def step(self, dynamics, goal, dt, action=None, observation=None):
         to_goal = goal[0:3] - dynamics.pos
-        print("Mellinger Step")
         # goal_dist = np.sqrt(np.cumsum(np.square(to_goal)))[2]
         goal_dist = (to_goal[0] ** 2 + to_goal[1] ** 2 + to_goal[2] ** 2) ** 0.5
         ##goal_dist = norm(to_goal)

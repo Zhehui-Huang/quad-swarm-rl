@@ -46,3 +46,5 @@ class Scenario_dynamic_diff_goal(QuadrotorScenario):
 
         # Reset formation, and parameters related to the formation; formation center; goals
         self.standard_reset()
+
+

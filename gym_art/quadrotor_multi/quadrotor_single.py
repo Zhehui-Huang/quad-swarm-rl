@@ -331,7 +331,8 @@ class QuadrotorSingle:
             else:
                 raise ValueError('QuadEnv: Unknown dimensionality mode %s' % self.dim_mode)
         else:
-            self.controller = NonlinearPositionController(self.dynamics, tf_control=self.tf_control)
+            self.controller = CollectiveThrustBodyRate(dynamics=self.dynamics, dynamics_params=dynamics_params)
+            # self.controller = NonlinearPositionController(self.dynamics, tf_control=self.tf_control)
 
         # ACTIONS
         self.action_space = self.controller.action_space(self.dynamics)

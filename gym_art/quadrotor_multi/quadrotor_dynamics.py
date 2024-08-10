@@ -208,7 +208,6 @@ class QuadrotorDynamics:
         return pos, vel, rot, omega
 
     def step(self, thrust_cmds, dt):
-        print("Thrust Dynamics Pre: ", thrust_cmds)
         thrust_noise = self.thrust_noise.noise()
 
         if self.use_numba:
@@ -294,7 +293,6 @@ class QuadrotorDynamics:
         # (Square) Damping using torques (in case we would like to add damping using torques)
         # damping_torque = - 0.3 * self.omega * np.fabs(self.omega)
         self.torque = thrust_torque + rotor_visc_torque
-        print("Current Torque: ", self.torque)
         thrust = npa(0, 0, np.sum(thrusts))
 
         # ROTATIONAL DYNAMICS
