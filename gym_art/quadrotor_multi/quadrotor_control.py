@@ -22,6 +22,7 @@ class CollectiveThrustBodyRate(object):
         self.ARCMINUTE = math.pi / 10800.0
 
         self.arm_length = dynamics_params["geom"]["arms"]["l"]
+        self.arm_length = 0.046
         self.thrust_to_torque = dynamics_params["motor"]["torque_to_thrust"]
         
         self.pwmToThrustA = 0.091492681
@@ -52,6 +53,7 @@ class CollectiveThrustBodyRate(object):
         self.heuristic_rp = 12
         self.heuristic_yaw = 5
         
+        
     def step(self, dynamics, action, goal, dt, observation=None):
         accDes = np.zeros(3)
         
@@ -70,7 +72,7 @@ class CollectiveThrustBodyRate(object):
         
         R02 = 2.0 * attitude[0] * attitude[2] + 2 * attitude[3] * attitude[1]
         R12 = 2.0 * attitude[1] * attitude[2] - 2 * attitude[3] * attitude[0]
-        R22 = attitude[3] * attitude[3] - attitude[0] * attitude[0] - attitude[1] * attitude[1] + attitude[2] * attitude[2]
+        R22 = (attitude[3] * attitude[3]) - (attitude[0] * attitude[0]) - (attitude[1] * attitude[1]) + (attitude[2] * attitude[2])
         
         temp1 = self.qeye()
         temp2 = self.qeye()
@@ -259,6 +261,40 @@ class CollectiveThrustBodyRate(object):
         
         dynamics.step(thrusts, dt)
         self.action = thrusts.copy()
+        
+    def compute_normalized_thrust(self, actions):
+        
+        arm = 0.707106781 * self.arm_length;
+        rollPart = 0.25 / arm * self.control_vector[1]; # Torque X
+        pitchPart = 0.25 / arm * self.control_vector[2]; # Torque Y
+        thrustPart = 0.25 * self.control_vector[0]
+        yawPart = 0.25 * self.control_vector[3] / self.thrust_to_torque;
+        
+        actions[0] = thrustPart - rollPart - pitchPart - yawPart
+        actions[1] = thrustPart - rollPart + pitchPart + yawPart
+        actions[2] = thrustPart + rollPart + pitchPart - yawPart
+        actions[3] = thrustPart + rollPart - pitchPart + yawPart
+
+        for i in range(4):
+            actions[i] = thrustPart
+        
+                
+        actions[actions < 0] = 0
+        actions[actions > 1] = 1
+        
+        # for i in range(4):
+        #     action = actions[i]
+        #     if (action < 0.0):
+        #         action = 0.0
+        #     motor_pwm = (-self.pwmToThrustB + math.sqrt(self.pwmToThrustB * self.pwmToThrustB + 4.0 * self.pwmToThrustA * action)) / (2.0 * self.pwmToThrustA)
+        #     normalized_actions[i] = motor_pwm
+        #     # actions[i] = action
+
+        # normalized_actions = np.clip(normalized_actions, a_min=-np.ones(4), a_max=np.ones(4))
+        # normalized_actions = 0.5* (normalized_actions + 1.0)
+        # print(normalized_actions)
+        
+        return actions
     
     def mvmul(self, a, v):
         x = a[0][0] * v[0] + a[0][1] * v[1] + a[0][2] * v[2]
@@ -297,34 +333,6 @@ class CollectiveThrustBodyRate(object):
         
         return np.array([x,y,z,w])
     
-    def compute_normalized_thrust(self, actions):
-        
-        arm = 0.707106781 * self.arm_length;
-        rollPart = 0.25 / arm * self.control_vector[1]; # Torque X
-        pitchPart = 0.25 / arm * self.control_vector[2]; # Torque Y
-        thrustPart = 0.25 * self.control_vector[0]
-        yawPart = 0.25 * self.control_vector[3] / self.thrust_to_torque;
-        
-        actions[0] = thrustPart - rollPart - pitchPart - yawPart
-        actions[1] = thrustPart - rollPart + pitchPart + yawPart
-        actions[2] = thrustPart + rollPart + pitchPart - yawPart
-        actions[3] = thrustPart + rollPart - pitchPart + yawPart
-        
-        actions[actions < 0] = 0
-        actions[actions > 1] = 1
-        
-        # for i in range(4):
-        #     action = actions[i]
-        #     if (action < 0.0):
-        #         action = 0.0
-        #     motor_pwm = (-self.pwmToThrustB + math.sqrt(self.pwmToThrustB * self.pwmToThrustB + 4.0 * self.pwmToThrustA * action)) / (2.0 * self.pwmToThrustA)
-        #     normalized_actions[i] = motor_pwm
-        #     # actions[i] = action
-
-        # normalized_actions = np.clip(normalized_actions, a_min=-np.ones(4), a_max=np.ones(4))
-        # normalized_actions = 0.5* (normalized_actions + 1.0)
-        # print(normalized_actions)
-        return actions
     def action_space(self, dynamics):
         circle_per_sec = 2 * np.pi
         max_rp = 5 * circle_per_sec
