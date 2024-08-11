@@ -20,10 +20,6 @@ class CollectiveThrustBodyRate(object):
         self.J = np.diag(dynamics.inertia)
         
         self.ARCMINUTE = math.pi / 10800.0
-
-        self.arm_length = dynamics_params["geom"]["arms"]["l"]
-        self.arm_length = 0.046
-        self.thrust_to_torque = dynamics_params["motor"]["torque_to_thrust"]
         
         self.pwmToThrustA = 0.091492681
         self.pwmToThrustB = 0.067673604
@@ -31,13 +27,13 @@ class CollectiveThrustBodyRate(object):
         self.control_vector = np.zeros(4) # Thrust, BodyRate_X, BodyRate_Y, BodyRate_Z
         self.control_omega = np.zeros(3)
         
-        self.tau_xy = 0.3
-        self.zeta_xy = 0.85 # 0.85
+        self.tau_xy = 0.3 # 0.3
+        self.zeta_xy = 0.95 # 0.85
         
         self.tau_z = 0.3
         self.zeta_z = 0.85
         
-        self.tau_rp = 0.25
+        self.tau_rp = 0.1 # 0.25
         self.mixing_factor = 1.0
         
         self.tau_rp_rate = 0.015
@@ -48,8 +44,8 @@ class CollectiveThrustBodyRate(object):
         
         self.thrust_reduction_fairness = 0.25
         
-        self.omega_rp_max = 30
-        self.omega_yaw_max = 10
+        self.omega_rp_max = 35 #30
+        self.omega_yaw_max = 35 #10
         self.heuristic_rp = 12
         self.heuristic_yaw = 5
         
@@ -70,9 +66,14 @@ class CollectiveThrustBodyRate(object):
         
         attitudeI = self.qinv(attitude)
         
-        R02 = 2.0 * attitude[0] * attitude[2] + 2 * attitude[3] * attitude[1]
-        R12 = 2.0 * attitude[1] * attitude[2] - 2 * attitude[3] * attitude[0]
-        R22 = (attitude[3] * attitude[3]) - (attitude[0] * attitude[0]) - (attitude[1] * attitude[1]) + (attitude[2] * attitude[2])
+        # R02 = (2.0 * attitude[0] * attitude[2]) + (2 * attitude[3] * attitude[1])
+        # R12 = (2.0 * attitude[1] * attitude[2]) - (2 * attitude[3] * attitude[0])
+        # R22 = (attitude[3] * attitude[3]) - (attitude[0] * attitude[0]) - (attitude[1] * attitude[1]) + (attitude[2] * attitude[2])
+        
+        current_R = dynamics.rot
+        R02 = current_R[2][0]
+        R12 = current_R[2][1]
+        R22 = current_R[2][2]
         
         temp1 = self.qeye()
         temp2 = self.qeye()
@@ -85,7 +86,7 @@ class CollectiveThrustBodyRate(object):
         accDes[0] += 1.0 / self.tau_xy / self.tau_xy * pError[0]
         accDes[0] += 2.0 * self.zeta_xy / self.tau_xy * vError[0]
         accDes[0] += goal[6]
-        accDes[0] = self.constrain(accDes[0], -self.coll_max, self.coll_max)
+        accDes[0] = self.constrain(accDes[0], - self.coll_max, self.coll_max)
         
         accDes[1] += 1.0 / self.tau_xy / self.tau_xy * pError[1]
         accDes[1] += 2.0 * self.zeta_xy / self.tau_xy * vError[1]
@@ -144,21 +145,19 @@ class CollectiveThrustBodyRate(object):
         # Reduced Attitude Control
         
         dotProd = np.dot(zI_cur, zI_des)
-        if (dotProd < -1):
-            dotProd = -1.0
-        if (dotProd > 1):
-            dotProd  = 1.0
+        dotProd = self.constrain(dotProd, -1 , 1)
         
         alpha = np.arcsin(dotProd)
         
         rotAxisI = np.zeros(3)
-        if (abs(alpha) > 1 * self.ARCMINUTE):
+        if (abs(alpha) > (1 * self.ARCMINUTE)):
             rotAxisI = self.normalize(np.cross(zI_cur, zI_des))
+            print(rotAxisI)
         else:
             rotAxisI = np.array([1.0,1.0,0.0])
 
         attErrorReduced[3] = np.cos(alpha / 2.0)
-        attErrorReduced[0] = np.sin(alpha / 2.0) * rotAxisI[0]
+        attErrorReduced[0] = np.sin(alpha / 2.0) * rotAxisI[0] #unstable behavior here
         attErrorReduced[1] = np.sin(alpha / 2.0) * rotAxisI[1]
         attErrorReduced[2] = np.sin(alpha / 2.0) * rotAxisI[2]
         
@@ -175,7 +174,7 @@ class CollectiveThrustBodyRate(object):
         dotProd = self.constrain(dotProd, -1.0, 1.0)
         alpha = np.arccos(dotProd)
         
-        if (abs(alpha) > 1 * self.ARCMINUTE):
+        if (abs(alpha) > (1 * self.ARCMINUTE)):
             rotAxisI = self.normalize(np.cross(zI, zI_des))
         else:
             rotAxisI = np.array([1.0, 1.0, 0.0])
@@ -241,60 +240,27 @@ class CollectiveThrustBodyRate(object):
         self.control_omega[1] /= scaling
         self.control_omega[2] /= scaling
         
-        control_thrust = collCmd
+        self.control_thrust = collCmd
         
+        desired_state = np.array([self.control_thrust, self.control_omega[0], 
+                                            self.control_omega[1], self.control_omega[2]])
+        print("Control Desired State: ", desired_state)
         
-        ## Below line should run much faster than above. I.E we can replace control commands with the NN outputs.
-        
-        omegaErr = np.array([(self.control_omega[0] - dynamics.omega[0]) / self.tau_rp_rate,
-                             (self.control_omega[1] - dynamics.omega[1]) / self.tau_rp_rate, 
-                             (self.control_omega[2] - dynamics.omega[2]) / self.tau_yaw_rate])
+        dynamics.step(desired_state, dt)
+        self.action = desired_state.copy()
 
-        control_torque = self.mvmul(self.J, omegaErr)
         
-        self.control_vector[0] = control_thrust * dynamics.mass
-        self.control_vector[1] = control_torque[0]
-        self.control_vector[2] = control_torque[1]
-        self.control_vector[3] = control_torque[2]
-        
-        thrusts = self.compute_normalized_thrust(actions=action)
-        
-        dynamics.step(thrusts, dt)
-        self.action = thrusts.copy()
-        
-    def compute_normalized_thrust(self, actions):
-        
-        arm = 0.707106781 * self.arm_length;
-        rollPart = 0.25 / arm * self.control_vector[1]; # Torque X
-        pitchPart = 0.25 / arm * self.control_vector[2]; # Torque Y
-        thrustPart = 0.25 * self.control_vector[0]
-        yawPart = 0.25 * self.control_vector[3] / self.thrust_to_torque;
-        
-        actions[0] = thrustPart - rollPart - pitchPart - yawPart
-        actions[1] = thrustPart - rollPart + pitchPart + yawPart
-        actions[2] = thrustPart + rollPart + pitchPart - yawPart
-        actions[3] = thrustPart + rollPart - pitchPart + yawPart
-
+    # This function might not be necessary during Simulation?
+    def compute_desired_pwm(self, desired_thrusts):
         for i in range(4):
-            actions[i] = thrustPart
-        
-                
-        actions[actions < 0] = 0
-        actions[actions > 1] = 1
-        
-        # for i in range(4):
-        #     action = actions[i]
-        #     if (action < 0.0):
-        #         action = 0.0
-        #     motor_pwm = (-self.pwmToThrustB + math.sqrt(self.pwmToThrustB * self.pwmToThrustB + 4.0 * self.pwmToThrustA * action)) / (2.0 * self.pwmToThrustA)
-        #     normalized_actions[i] = motor_pwm
-        #     # actions[i] = action
+            desired_thrust = desired_thrusts[i]
+            motor_pwm = (-self.pwmToThrustB + math.sqrt(self.pwmToThrustB * self.pwmToThrustB + 4.0 * self.pwmToThrustA * desired_thrust)) / (2.0 * self.pwmToThrustA)
+            normalized_actions[i] = motor_pwm
+            # actions[i] = action
 
-        # normalized_actions = np.clip(normalized_actions, a_min=-np.ones(4), a_max=np.ones(4))
-        # normalized_actions = 0.5* (normalized_actions + 1.0)
-        # print(normalized_actions)
-        
-        return actions
+        normalized_actions = np.clip(normalized_actions, a_min=-np.ones(4), a_max=np.ones(4))
+        normalized_actions = 0.5* (normalized_actions + 1.0)
+        print(normalized_actions)
     
     def mvmul(self, a, v):
         x = a[0][0] * v[0] + a[0][1] * v[1] + a[0][2] * v[2]
@@ -389,7 +355,8 @@ class RawControl(object):
     # @profile
     def step(self, dynamics, action, goal, dt, observation=None):
         action = np.clip(action, a_min=self.low, a_max=self.high)
-        action = self.scale * (action + self.bias)
+        # action = self.scale * (action + self.bias)
+        action = np.ones(4)
         dynamics.step(action, dt)
         self.action = action.copy()
 

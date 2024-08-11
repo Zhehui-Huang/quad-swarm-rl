@@ -93,6 +93,86 @@ class QuadrotorDynamics:
         
         self.thrust_vector = np.zeros(4)
         self.torque = np.zeros(3)
+        self.use_ctbr = True
+        self.coll_min = 1
+        self.coll_max = 18
+        
+        if (self.use_ctbr):
+            self.control_omega = np.zeros(3)
+            self.control_thrust = 0.0
+            self.control_vector = np.zeros(4)
+            
+    def update_desired_state(self, collective_thrust, desired_omega):
+        """
+        Update the body rate and thrust for the controller to track
+        Args:
+            [collective_thrust, omega_x, omega_y, omega_z]
+        """
+        # Collective thrust is obtained from the NN in range [-1, 1] need to convert to [1,1]
+        self.control_thrust = ((collective_thrust + 1) * ((self.coll_max - self.coll_min) / (1 + 1))) + self.coll_min
+        self.control_omega[0] = desired_omega[0] * self.omega_max
+        self.control_omega[1] = desired_omega[1] * self.omega_max
+        self.control_omega[2] = desired_omega[2] * self.omega_max
+
+    def compute_thrust_force(self):
+        
+        motorForces = np.zeros(4)
+        
+        arm = 0.707106781 * self.model_params["geom"]["arms"]["l"];
+        rollPart = (0.25 / arm) * self.control_vector[1]; # Torque X
+        pitchPart = (0.25 / arm) * self.control_vector[2]; # Torque Y
+        thrustPart = 0.25 * self.control_vector[0]
+        yawPart = (0.25 * self.control_vector[3]) / self.model_params["motor"]["torque_to_thrust"];
+        
+        motorForces[0] = thrustPart - rollPart - pitchPart - yawPart
+        motorForces[1] = thrustPart - rollPart + pitchPart + yawPart
+        motorForces[2] = thrustPart + rollPart + pitchPart - yawPart
+        motorForces[3] = thrustPart + rollPart - pitchPart + yawPart        
+                
+        motorForces[motorForces < 0] = 0.0
+        
+        return motorForces
+            
+        
+    def body_rate_controller_step(self):
+        """
+        The body rate controller should step as fast as the dynamics in the world are. This is a 
+        key assumption as the Gyro in the real world has very fast update rates. Ideally 1khz.
+        """
+        def mvmul(a, v):
+            x = a[0][0] * v[0] + a[0][1] * v[1] + a[0][2] * v[2]
+            y = a[1][0] * v[0] + a[1][1] * v[1] + a[1][2] * v[2]
+            z = a[2][0] * v[0] + a[2][1] * v[1] + a[2][2] * v[2]
+            
+            return np.array([x,y,z])
+        
+        # print("Dynamics Desired State: ", self.control_thrust, self.control_omega)
+        tau_rp_rate = 0.015 # 0.015
+        tau_yaw_rate = 0.0075 # 0.0075
+        
+        J = np.diag(self.inertia)
+        omegaErr = np.array([(self.control_omega[0] - self.omega[0]) / tau_rp_rate,
+                             (self.control_omega[1] - self.omega[1]) / tau_rp_rate, 
+                             (self.control_omega[2] - self.omega[2]) / tau_yaw_rate])
+
+        control_torque = mvmul(J, omegaErr)
+        # control_torque = np.matmul(J, omegaErr) # wtf is wrong with numpys lin alg?
+        
+        self.control_vector[0] = self.control_thrust * self.mass
+        self.control_vector[1] = control_torque[0]
+        self.control_vector[2] = control_torque[1]
+        self.control_vector[3] = control_torque[2]
+        
+        thrusts = self.compute_thrust_force()
+        
+        # print("Desired Motor Forces: ", thrusts)
+        
+        thrusts = (1/self.thrust_max) * thrusts
+        thrusts[thrusts > 1.0] = 1.0 
+        
+        return thrusts
+        
+        
     @staticmethod
     def angvel2thrust(w, linearity=0.424):
         """
@@ -225,6 +305,11 @@ class QuadrotorDynamics:
     # omega - body frame
     # goal_pos - global
     def step1(self, thrust_cmds, dt, thrust_noise):
+
+        if (self.use_ctbr):
+            self.update_desired_state(collective_thrust=thrust_cmds[0], desired_omega=thrust_cmds[1:4])
+            thrust_cmds = self.body_rate_controller_step()
+        
         thrust_cmds = np.clip(thrust_cmds, a_min=0., a_max=1.)
 
         # Filtering the thruster and adding noise
@@ -348,6 +433,11 @@ class QuadrotorDynamics:
         self.accelerometer = np.matmul(self.rot.T, self.acc + [0, 0, self.gravity])
 
     def step1_numba(self, thrust_cmds, dt, thrust_noise):
+        
+        if (self.use_ctbr):
+            self.update_desired_state(collective_thrust=thrust_cmds[0], desired_omega=thrust_cmds[1:4])
+            thrust_cmds = self.body_rate_controller_step()
+        
         self.thrust_rot_damp, self.thrust_cmds_damp, self.torques, self.torque, self.rot, self.since_last_svd, \
             self.omega_dot, self.omega, self.pos, thrust, rotor_drag_force, self.vel, self.thrust_vector = \
             calculate_torque_integrate_rotations_and_update_omega(
@@ -502,9 +592,8 @@ def calculate_torque_integrate_rotations_and_update_omega(
         motor_linearity, prop_crossproducts, torque_max, prop_ccw, rot, omega, dt, since_last_svd, since_last_svd_limit,
         inertia, eye, omega_max, damp_omega_quadratic, pos, vel
 ):
-    # print("Thrust Torque Calc Dynamics pre: ", type(thrust_cmds))
-    # Filtering the thruster and adding noise
-    thrust_raw = thrust_cmds
+
+    # Filtering the thruster and adding noise    
     thrust_cmds = np.clip(thrust_cmds, 0., 1.)
     motor_tau = motor_tau_up * np.ones(4)
     motor_tau[thrust_cmds < thrust_cmds_damp] = np.array(motor_tau_down)
@@ -520,17 +609,13 @@ def calculate_torque_integrate_rotations_and_update_omega(
     thrust_cmds_damp = np.clip(thrust_cmds_damp + thrust_noise, 0.0, 1.0)
     thrusts = thrust_max * angvel2thrust_numba(thrust_cmds_damp, motor_linearity)
     
-    thrusts = thrust_raw
-    thrust_vector = thrusts 
-    thrust_cmds_damp = thrust_raw
-    
     # Prop cross-product gives torque directions
     torques = prop_crossproducts * np.reshape(thrusts, (-1, 1))
 
     # Additional torques along z-axis caused by propeller rotations
     torques[:, 2] += torque_max * prop_ccw * thrust_cmds_damp
-    torques[:, 2] += torque_max * prop_ccw * thrust_raw
     # Net torque: sum over propellers
+    
     thrust_torque = np.sum(torques, 0)
 
     # Rotor drag and Rolling forces and moments
