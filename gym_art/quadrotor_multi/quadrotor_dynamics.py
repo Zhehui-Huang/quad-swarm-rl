@@ -439,7 +439,7 @@ class QuadrotorDynamics:
             thrust_cmds = self.body_rate_controller_step()
         
         self.thrust_rot_damp, self.thrust_cmds_damp, self.torques, self.torque, self.rot, self.since_last_svd, \
-            self.omega_dot, self.omega, self.pos, thrust, rotor_drag_force, self.vel, self.thrust_vector = \
+            self.omega_dot, self.omega, self.pos, thrust, rotor_drag_force, self.vel = \
             calculate_torque_integrate_rotations_and_update_omega(
                 thrust_cmds=thrust_cmds, motor_tau_up=self.motor_tau_up, motor_tau_down=self.motor_tau_down,
                 thrust_cmds_damp=self.thrust_cmds_damp, thrust_rot_damp=self.thrust_rot_damp, thr_noise=thrust_noise,
@@ -656,7 +656,7 @@ def calculate_torque_integrate_rotations_and_update_omega(
     pos = pos + dt * vel
 
     return thrust_rot_damp, thrust_cmds_damp, torques, torque, rot, since_last_svd, omega_dot, omega, pos, thrust, \
-        rotor_drag_force, vel, thrust_vector
+        rotor_drag_force, vel
 
 
 @njit
