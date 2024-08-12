@@ -19,8 +19,6 @@ from gym_art.quadrotor_multi.quadrotor_multi_visualization import Quadrotor3DSce
 from gym_art.quadrotor_multi.quadrotor_single import QuadrotorSingle
 from gym_art.quadrotor_multi.scenarios.mix import create_scenario
 
-from gym_art.quadrotor_multi.quadrotor_control import NonlinearPositionController
-
 
 class QuadrotorEnvMulti(gym.Env):
     def __init__(self, num_agents, ep_time, rew_coeff, obs_repr, obs_rel_rot, dynamic_goal,
@@ -487,7 +485,6 @@ class QuadrotorEnvMulti(gym.Env):
 
         for i, a in enumerate(actions):
             self.envs[i].rew_coeff = self.rew_coeff
-            self.envs[i]
 
             observation, reward, done, info = self.envs[i].step(a)
             obs.append(observation)

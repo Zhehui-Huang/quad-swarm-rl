@@ -95,11 +95,6 @@ class QuadrotorDynamics:
         self.coll_min = 1
         self.coll_max = 18
         
-        # if (self.use_ctbr):
-        #     self.control_omega = np.zeros(3)
-        #     self.control_thrust = 0.0
-        #     self.control_vector = np.zeros(4)
-        
     def body_rate_controller_step(self, collective_thrust, desired_omega):
         """
         The body rate controller should step as fast as the dynamics in the world are. This is a 
@@ -428,10 +423,6 @@ class QuadrotorDynamics:
         self.accelerometer = np.matmul(self.rot.T, self.acc + [0, 0, self.gravity])
 
     def step1_numba(self, thrust_cmds, dt, thrust_noise):
-        
-        if (self.use_ctbr):
-            thrust_cmds = self.body_rate_controller_step(thrust_cmds[0], thrust_cmds[1:4])
-        
         self.thrust_rot_damp, self.thrust_cmds_damp, self.torques, self.torque, self.rot, self.since_last_svd, \
             self.omega_dot, self.omega, self.pos, thrust, rotor_drag_force, self.vel = \
             calculate_torque_integrate_rotations_and_update_omega(
@@ -586,7 +577,9 @@ def calculate_torque_integrate_rotations_and_update_omega(
         motor_linearity, prop_crossproducts, torque_max, prop_ccw, rot, omega, dt, since_last_svd, since_last_svd_limit,
         inertia, eye, omega_max, damp_omega_quadratic, pos, vel
 ):
-
+        
+    if (self.use_ctbr):
+        thrust_cmds = self.body_rate_controller_step(thrust_cmds[0], thrust_cmds[1:4])
     # Filtering the thruster and adding noise    
     thrust_cmds = np.clip(thrust_cmds, 0., 1.)
     motor_tau = motor_tau_up * np.ones(4)

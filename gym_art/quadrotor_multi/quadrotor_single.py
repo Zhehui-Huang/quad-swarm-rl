@@ -293,8 +293,6 @@ class QuadrotorSingle:
         # Make observation space
         self.observation_space = self.make_observation_space()
         
-        self.low_level_controller = CollectiveThrustBodyRate(dynamics=self.dynamics, dynamics_params=self.dynamics_params)
-
         self._seed()
 
     def update_sense_noise(self, sense_noise):
@@ -319,7 +317,6 @@ class QuadrotorSingle:
                                           dim_mode=self.dim_mode, gravity=self.gravity,
                                           dynamics_simplification=self.dynamics_simplification,
                                           use_numba=self.use_numba, dt=self.dt)
-        self.raw_control = True
         # CONTROL
         if self.raw_control:
             if self.dim_mode == '1D':  # Z axis only

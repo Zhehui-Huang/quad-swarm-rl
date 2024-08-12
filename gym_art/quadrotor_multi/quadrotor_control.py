@@ -350,7 +350,7 @@ class RawControl(object):
         self.step_func = self.step
 
     def action_space(self, dynamics):
-        if not self.zero_action_middle:      
+        if not self.zero_action_middle:
             # Range of actions 0 .. 1
             self.low = np.zeros(4)
             self.bias = 0.0
@@ -366,19 +366,18 @@ class RawControl(object):
     # modifies the dynamics in place.
     # @profile
     def step(self, dynamics, action, goal, dt, observation=None):
-        # print("Network Output: ", action)
         action = np.clip(action, a_min=self.low, a_max=self.high)
-        action = self.scale * (action + self.bias)      
+        action = self.scale * (action + self.bias)
         dynamics.step(action, dt)
         self.action = action.copy()
 
     # @profile
-    # def step_tf(self, dynamics, action, goal, dt, observation=None):
-    #     # print('bias/scale: ', self.scale, self.bias)
-    #     action = np.clip(action, a_min=self.low, a_max=self.high)
-    #     action = self.scale * (action + self.bias)
-    #     dynamics.step(action, dt)
-    #     self.action = action.copy()
+    def step_tf(self, dynamics, action, goal, dt, observation=None):
+        # print('bias/scale: ', self.scale, self.bias)
+        action = np.clip(action, a_min=self.low, a_max=self.high)
+        action = self.scale * (action + self.bias)
+        dynamics.step(action, dt)
+        self.action = action.copy()
 
 
 class VerticalControl(object):
@@ -569,7 +568,7 @@ class VelocityYawControl(object):
 class NonlinearPositionController(object):
     # @profile
     def __init__(self, dynamics, tf_control=True):
-        # import tensorflow as tf
+        import tensorflow as tf
         jacobian = quadrotor_jacobian(dynamics)
         self.Jinv = np.linalg.inv(jacobian)
         ## Jacobian inverse for our quadrotor
@@ -584,7 +583,7 @@ class NonlinearPositionController(object):
 
         self.rot_des = np.eye(3)
 
-        self.tf_control = False
+        self.tf_control = tf_control
         if tf_control:
             self.step_func = self.step_tf
             self.sess = tf.Session()
@@ -596,7 +595,7 @@ class NonlinearPositionController(object):
     # modifies the dynamics in place.
     # @profile
     def step(self, dynamics, goal, dt, action=None, observation=None):
-        to_goal = goal[0:3] - dynamics.pos
+        to_goal = goal - dynamics.pos
         # goal_dist = np.sqrt(np.cumsum(np.square(to_goal)))[2]
         goal_dist = (to_goal[0] ** 2 + to_goal[1] ** 2 + to_goal[2] ** 2) ** 0.5
         ##goal_dist = norm(to_goal)
