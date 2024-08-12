@@ -493,7 +493,6 @@ class QuadrotorEnvMulti(gym.Env):
             infos.append(info)
 
             self.pos[i, :] = self.envs[i].dynamics.pos
-            
         # 1. Calculate collisions: 1) between drones 2) with obstacles 3) with room
         # 1) Collisions between drones
         drone_col_matrix, curr_drone_collisions, distance_matrix = \
