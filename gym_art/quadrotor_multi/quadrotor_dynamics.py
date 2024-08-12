@@ -91,52 +91,16 @@ class QuadrotorDynamics:
         else:
             raise ValueError('QuadEnv: Unknown dimensionality mode %s' % self.dim_mode)
         
-        self.torque = np.zeros(3)
         self.use_ctbr = True
         self.coll_min = 1
         self.coll_max = 18
         
-        if (self.use_ctbr):
-            self.control_omega = np.zeros(3)
-            self.control_thrust = 0.0
-            self.control_vector = np.zeros(4)
-            
-    def update_desired_state(self, collective_thrust, desired_omega):
-        """
-        Update the body rate and thrust for the controller to track
-        Args:
-            [collective_thrust, omega_x, omega_y, omega_z]
-            
-        """
-        collective_thrust = np.clip(collective_thrust, a_min=self.coll_min, a_max=self.coll_max)
-        desired_omega = np.clip(desired_omega, -self.omega_max, self.omega_max)
+        # if (self.use_ctbr):
+        #     self.control_omega = np.zeros(3)
+        #     self.control_thrust = 0.0
+        #     self.control_vector = np.zeros(4)
         
-        self.control_thrust = collective_thrust
-        self.control_omega[0] = desired_omega[0] 
-        self.control_omega[1] = desired_omega[1]
-        self.control_omega[2] = desired_omega[2]
-
-    def compute_thrust_force(self):
-        
-        motorForces = np.zeros(4)
-        
-        arm = 0.707106781 * self.model_params["geom"]["arms"]["l"];
-        rollPart = (0.25 / arm) * self.control_vector[1]; # Torque X
-        pitchPart = (0.25 / arm) * self.control_vector[2]; # Torque Y
-        thrustPart = 0.25 * self.control_vector[0]
-        yawPart = (0.25 * self.control_vector[3]) / self.model_params["motor"]["torque_to_thrust"];
-        
-        motorForces[0] = thrustPart - rollPart - pitchPart - yawPart
-        motorForces[1] = thrustPart - rollPart + pitchPart + yawPart
-        motorForces[2] = thrustPart + rollPart + pitchPart - yawPart
-        motorForces[3] = thrustPart + rollPart - pitchPart + yawPart        
-                
-        motorForces[motorForces < 0] = 0.0
-        
-        return motorForces
-            
-        
-    def body_rate_controller_step(self):
+    def body_rate_controller_step(self, collective_thrust, desired_omega):
         """
         The body rate controller should step as fast as the dynamics in the world are. This is a 
         key assumption as the Gyro in the real world has very fast update rates. Ideally 1khz.
@@ -147,29 +111,57 @@ class QuadrotorDynamics:
             z = a[2][0] * v[0] + a[2][1] * v[1] + a[2][2] * v[2]
             
             return np.array([x,y,z])
+
+                
+        motorForces = np.zeros(4)
+        control_vector = np.zeros(4)
         
         # print("Dynamics Desired State: ", self.control_thrust, self.control_omega)
         tau_rp_rate = 0.015 # 0.015
         tau_yaw_rate = 0.0075 # 0.0075
         
+        # print("CTBR PreClip: ", collective_thrust, desired_omega)
+        # collective_thrust_transformed = np.clip(collective_thrust, a_min=self.coll_min, a_max=self.coll_max)
+        collective_thrust_transformed = (collective_thrust * 17) + 1
+        # desired_omega_transformed = np.clip(desired_omega, a_min=-self.omega_max, a_max=self.omega_max)
+        desired_omega_transformed = (desired_omega * 70) - 35
+
+        
+        # print("CTBR Clip: ", collective_thrust_clipped, desired_omega_clipped)
+        
         J = np.diag(self.inertia)
-        omegaErr = np.array([(self.control_omega[0] - self.omega[0]) / tau_rp_rate,
-                             (self.control_omega[1] - self.omega[1]) / tau_rp_rate, 
-                             (self.control_omega[2] - self.omega[2]) / tau_yaw_rate])
+        omegaErr = np.array([(desired_omega_transformed[0] - self.omega[0]) / tau_rp_rate,
+                             (desired_omega_transformed[1] - self.omega[1]) / tau_rp_rate, 
+                             (desired_omega_transformed[2] - self.omega[2]) / tau_yaw_rate])
 
         control_torque = mvmul(J, omegaErr)
         # control_torque = np.matmul(J, omegaErr) # wtf is wrong with numpys lin alg?
         
-        self.control_vector[0] = self.control_thrust * self.mass
-        self.control_vector[1] = control_torque[0]
-        self.control_vector[2] = control_torque[1]
-        self.control_vector[3] = control_torque[2]
+        control_vector[0] = collective_thrust_transformed * self.mass
+        control_vector[1] = control_torque[0]
+        control_vector[2] = control_torque[1]
+        control_vector[3] = control_torque[2]
         
-        thrusts = self.compute_thrust_force()
+        # print("Control Vector: ", control_vector)
+
         
-        # print("Desired Motor Forces: ", thrusts)
+        arm = 0.707106781 * self.model_params["geom"]["arms"]["l"]
+        thrustPart = 0.25 * control_vector[0]
+        rollPart = (0.25 / arm) * control_vector[1]; # Torque X
+        pitchPart = (0.25 / arm) * control_vector[2]; # Torque Y
+        yawPart = (0.25 * control_vector[3]) / self.model_params["motor"]["torque_to_thrust"];
         
-        thrusts = (1/self.thrust_max) * thrusts
+        # print("Force Components: ", thrustPart, rollPart, pitchPart, yawPart)
+        
+        motorForces[0] = thrustPart - rollPart - pitchPart - yawPart
+        motorForces[1] = thrustPart - rollPart + pitchPart + yawPart
+        motorForces[2] = thrustPart + rollPart + pitchPart - yawPart
+        motorForces[3] = thrustPart + rollPart - pitchPart + yawPart        
+        # print("Desired Motor Forces: ", motorForces)
+        motorForces[motorForces < 0] = 0.0
+
+        
+        thrusts = (1/self.thrust_max) * motorForces
         thrusts[thrusts > 1.0] = 1.0 
         
         # print("Normalized Thrusts: ", thrusts)
@@ -311,8 +303,7 @@ class QuadrotorDynamics:
     def step1(self, thrust_cmds, dt, thrust_noise):
 
         if (self.use_ctbr):
-            self.update_desired_state(collective_thrust=thrust_cmds[0], desired_omega=thrust_cmds[1:4])
-            thrust_cmds = self.body_rate_controller_step()
+            thrust_cmds = self.body_rate_controller_step(thrust_cmds[0], thrust_cmds[1:4])
         
         thrust_cmds = np.clip(thrust_cmds, a_min=0., a_max=1.)
 
@@ -439,8 +430,7 @@ class QuadrotorDynamics:
     def step1_numba(self, thrust_cmds, dt, thrust_noise):
         
         if (self.use_ctbr):
-            self.update_desired_state(collective_thrust=thrust_cmds[0], desired_omega=thrust_cmds[1:4])
-            thrust_cmds = self.body_rate_controller_step()
+            thrust_cmds = self.body_rate_controller_step(thrust_cmds[0], thrust_cmds[1:4])
         
         self.thrust_rot_damp, self.thrust_cmds_damp, self.torques, self.torque, self.rot, self.since_last_svd, \
             self.omega_dot, self.omega, self.pos, thrust, rotor_drag_force, self.vel = \
