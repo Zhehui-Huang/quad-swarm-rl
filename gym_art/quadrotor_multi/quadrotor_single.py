@@ -319,7 +319,7 @@ class QuadrotorSingle:
                                           dim_mode=self.dim_mode, gravity=self.gravity,
                                           dynamics_simplification=self.dynamics_simplification,
                                           use_numba=self.use_numba, dt=self.dt)
-
+        self.raw_control = True
         # CONTROL
         if self.raw_control:
             if self.dim_mode == '1D':  # Z axis only

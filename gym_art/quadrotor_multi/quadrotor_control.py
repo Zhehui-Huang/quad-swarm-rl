@@ -62,18 +62,18 @@ class CollectiveThrustBodyRate(object):
         attDesiredFull = self.qeye()
         
         r_temp = R.from_matrix(dynamics.rot)
-        attitude = r_temp.as_quat() # Get current quad rotation as quaternion
+        attitude = r_temp.as_quat() # Get current quad rotation as quaternion [x, y, z, w]
         
         attitudeI = self.qinv(attitude)
         
-        # R02 = (2.0 * attitude[0] * attitude[2]) + (2 * attitude[3] * attitude[1])
-        # R12 = (2.0 * attitude[1] * attitude[2]) - (2 * attitude[3] * attitude[0])
-        # R22 = (attitude[3] * attitude[3]) - (attitude[0] * attitude[0]) - (attitude[1] * attitude[1]) + (attitude[2] * attitude[2])
+        R02 = (2.0 * attitude[0] * attitude[2]) + (2 * attitude[3] * attitude[1])
+        R12 = (2.0 * attitude[1] * attitude[2]) - (2 * attitude[3] * attitude[0])
+        R22 = (attitude[3] * attitude[3]) - (attitude[0] * attitude[0]) - (attitude[1] * attitude[1]) + (attitude[2] * attitude[2])
         
-        current_R = dynamics.rot
-        R02 = current_R[2][0]
-        R12 = current_R[2][1]
-        R22 = current_R[2][2]
+        # current_R = dynamics.rot
+        # R02 = current_R[2][0]
+        # R12 = current_R[2][1]
+        # R22 = current_R[2][2]
         
         temp1 = self.qeye()
         temp2 = self.qeye()
@@ -83,11 +83,13 @@ class CollectiveThrustBodyRate(object):
         
         # Linear Control
         
+        accDes[0] = 0.0
         accDes[0] += 1.0 / self.tau_xy / self.tau_xy * pError[0]
         accDes[0] += 2.0 * self.zeta_xy / self.tau_xy * vError[0]
         accDes[0] += goal[6]
-        accDes[0] = self.constrain(accDes[0], - self.coll_max, self.coll_max)
+        accDes[0] = self.constrain(accDes[0], -self.coll_max, self.coll_max)
         
+        accDes[1] = 0.0
         accDes[1] += 1.0 / self.tau_xy / self.tau_xy * pError[1]
         accDes[1] += 2.0 * self.zeta_xy / self.tau_xy * vError[1]
         accDes[1] += goal[7]
@@ -106,13 +108,14 @@ class CollectiveThrustBodyRate(object):
             x = accDes[0]
             y = accDes[1]
             z = accDes[2] - dynamics.gravity
-            f = self.thrust_reduction_fairness
+            f = self.constrain(self.thrust_reduction_fairness, 0, 1)
             
             r = 0.0
             
             a = x**2 + y**2 + (z*f)**2
             if (a < 0):
                 a = 0.0
+                
             b = 2 * z*f*((1-f)*z + dynamics.gravity)
             c = self.coll_max**2 - ((1-f)*z + dynamics.gravity)**2
             
@@ -123,20 +126,13 @@ class CollectiveThrustBodyRate(object):
             else:
                 sqrrterm = b**2 + 4.0*a*c
                 r = (-b + math.sqrt(sqrrterm))/(2.0*a)
-                if (r < 0):
-                    r = 0.0
-                if (r > 1):
-                    r = 1.0
+                r = self.constrain(r, 0, 1)
                 
             accDes[0] = r*x
             accDes[1] = r*y
             accDes[2] = (r*f+(1-f))*z + dynamics.gravity
         
-        collCmd = accDes[2] / R22
-        if collCmd < self.coll_min:
-            collCmd = self.coll_min
-        if collCmd > self.coll_max:
-            collCmd = self.coll_max
+        collCmd = self.constrain(accDes[2] / R22, self.coll_min, self.coll_max)
         
         zI_des = self.normalize(accDes)
         zI_cur = self.normalize(np.array([R02, R12, R22]))
@@ -144,15 +140,14 @@ class CollectiveThrustBodyRate(object):
         
         # Reduced Attitude Control
         
-        dotProd = np.dot(zI_cur, zI_des)
+        dotProd = self.vdot(zI_cur, zI_des)
         dotProd = self.constrain(dotProd, -1 , 1)
         
         alpha = np.arcsin(dotProd)
         
         rotAxisI = np.zeros(3)
         if (abs(alpha) > (1 * self.ARCMINUTE)):
-            rotAxisI = self.normalize(np.cross(zI_cur, zI_des))
-            print(rotAxisI)
+            rotAxisI = self.normalize(self.vcross(zI_cur, zI_des))
         else:
             rotAxisI = np.array([1.0,1.0,0.0])
 
@@ -170,12 +165,12 @@ class CollectiveThrustBodyRate(object):
         attErrorReduced = self.qnormalize(attErrorReduced)
         
         # Full Attitude Control
-        dotProd = np.dot(zI, zI_des)
+        dotProd = self.vdot(zI, zI_des)
         dotProd = self.constrain(dotProd, -1.0, 1.0)
         alpha = np.arccos(dotProd)
         
         if (abs(alpha) > (1 * self.ARCMINUTE)):
-            rotAxisI = self.normalize(np.cross(zI, zI_des))
+            rotAxisI = self.normalize(self.vcross(zI, zI_des))
         else:
             rotAxisI = np.array([1.0, 1.0, 0.0])
        
@@ -184,8 +179,8 @@ class CollectiveThrustBodyRate(object):
                                         np.sin(alpha / 2.0) * rotAxisI[2],
                                         np.cos(alpha / 2.0)])
         
-        attFullReqYaw = np.array([0.0, 0.0, np.sin(goal[12]), np.cos(goal[12] / 2.0)])
-        
+        attFullReqYaw = np.array([0.0, 0.0, np.sin(np.radians(goal[12]) / 2.0), np.cos(np.radians(goal[12]) / 2.0)])
+
         attDesiredFull = self.qqmul(attFullReqPitchRoll, attFullReqYaw)
         
         attErrorFull = self.qqmul(attitudeI, attDesiredFull)
@@ -222,14 +217,26 @@ class CollectiveThrustBodyRate(object):
         self.control_omega[1] = 2.0 / self.tau_rp * attError[1]
         self.control_omega[2] = 2.0 / self.tau_rp * attError[2] + goal[11]
         
-        if ((self.control_omega[0] * dynamics.omega[0] < 0) and (abs(dynamics.omega[0]) > self.heuristic_rp)):
-            self.control_omega[0] = self.omega_rp_max * (-1.0 if dynamics.omega[0] < 0 else 1.0)
+        if (((self.control_omega[0] * dynamics.omega[0]) < 0) and (abs(dynamics.omega[0]) > self.heuristic_rp)):
+            if (dynamics.omega[0] < 0):
+                sign = -1.0
+            else:
+                sign = 1.0
+            self.control_omega[0] = self.omega_rp_max * sign
             
-        if ((self.control_omega[1] * dynamics.omega[1] < 0) and (abs(dynamics.omega[1]) > self.heuristic_rp)):
-            self.control_omega[1] = self.omega_rp_max * (-1.0 if dynamics.omega[1] < 0 else 1.0)
+        if (((self.control_omega[1] * dynamics.omega[1]) < 0) and (abs(dynamics.omega[1]) > self.heuristic_rp)):
+            if (dynamics.omega[0] < 0):
+                sign = -1.0
+            else:
+                sign = 1.0
+            self.control_omega[1] = self.omega_rp_max * sign
             
-        if ((self.control_omega[2] * dynamics.omega[2] < 0) and (abs(dynamics.omega[2]) > self.heuristic_yaw)):
-            self.control_omega[2] = self.omega_rp_max * (-1.0 if dynamics.omega[2] < 0 else 1.0)
+        if (((self.control_omega[2] * dynamics.omega[2]) < 0) and (abs(dynamics.omega[2]) > self.heuristic_yaw)):
+            if (dynamics.omega[0] < 0):
+                sign = -1.0
+            else:
+                sign = 1.0
+            self.control_omega[2] = self.omega_rp_max * sign
         
         scaling = 1
         scaling = max(scaling, abs(self.control_omega[0]) / self.omega_rp_max)
@@ -244,11 +251,13 @@ class CollectiveThrustBodyRate(object):
         
         desired_state = np.array([self.control_thrust, self.control_omega[0], 
                                             self.control_omega[1], self.control_omega[2]])
-        print("Control Desired State: ", desired_state)
         
         dynamics.step(desired_state, dt)
         self.action = desired_state.copy()
 
+    def vcross(self, a, b):
+        return np.array([(a[1]*b[2]) - (a[2]*b[1]), (a[2]*b[0]) - (a[0]*b[2]), (a[0]*b[1]) - (a[1]*b[0])])
+        
         
     # This function might not be necessary during Simulation?
     def compute_desired_pwm(self, desired_thrusts):
@@ -261,6 +270,9 @@ class CollectiveThrustBodyRate(object):
         normalized_actions = np.clip(normalized_actions, a_min=-np.ones(4), a_max=np.ones(4))
         normalized_actions = 0.5* (normalized_actions + 1.0)
         print(normalized_actions)
+    
+    def vdot(self, a, b):
+        return (a[0] * b[0]) + (a[1] * b[1]) + (a[2] * b[2])
     
     def mvmul(self, a, v):
         x = a[0][0] * v[0] + a[0][1] * v[1] + a[0][2] * v[2]
@@ -354,9 +366,8 @@ class RawControl(object):
     # modifies the dynamics in place.
     # @profile
     def step(self, dynamics, action, goal, dt, observation=None):
-        action = np.clip(action, a_min=self.low, a_max=self.high)
-        # action = self.scale * (action + self.bias)
-        action = np.ones(4)
+        # action = np.clip(action, a_min=self.low, a_max=self.high)
+        # action = self.scale * (action + self.bias)      
         dynamics.step(action, dt)
         self.action = action.copy()
 

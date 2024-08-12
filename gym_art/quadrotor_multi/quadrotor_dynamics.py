@@ -91,7 +91,6 @@ class QuadrotorDynamics:
         else:
             raise ValueError('QuadEnv: Unknown dimensionality mode %s' % self.dim_mode)
         
-        self.thrust_vector = np.zeros(4)
         self.torque = np.zeros(3)
         self.use_ctbr = True
         self.coll_min = 1
@@ -107,12 +106,15 @@ class QuadrotorDynamics:
         Update the body rate and thrust for the controller to track
         Args:
             [collective_thrust, omega_x, omega_y, omega_z]
+            
         """
-        # Collective thrust is obtained from the NN in range [-1, 1] need to convert to [1,1]
-        self.control_thrust = ((collective_thrust + 1) * ((self.coll_max - self.coll_min) / (1 + 1))) + self.coll_min
-        self.control_omega[0] = desired_omega[0] * self.omega_max
-        self.control_omega[1] = desired_omega[1] * self.omega_max
-        self.control_omega[2] = desired_omega[2] * self.omega_max
+        collective_thrust = np.clip(collective_thrust, a_min=self.coll_min, a_max=self.coll_max)
+        desired_omega = np.clip(desired_omega, -self.omega_max, self.omega_max)
+        
+        self.control_thrust = collective_thrust
+        self.control_omega[0] = desired_omega[0] 
+        self.control_omega[1] = desired_omega[1]
+        self.control_omega[2] = desired_omega[2]
 
     def compute_thrust_force(self):
         
@@ -169,6 +171,8 @@ class QuadrotorDynamics:
         
         thrusts = (1/self.thrust_max) * thrusts
         thrusts[thrusts > 1.0] = 1.0 
+        
+        # print("Normalized Thrusts: ", thrusts)
         
         return thrusts
         
