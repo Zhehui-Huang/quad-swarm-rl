@@ -26,7 +26,7 @@ def add_quadrotors_env_args(env, parser):
                    help='Override default value for episode duration')
     p.add_argument('--quads_encoder_type', default='corl', choices=['corl', 'attention'], type=str,
                    help='The type of the neighborhood encoder')
-
+    p.add_argument('--quads_use_ctbr', default=False, type=str2bool, help='Use CTBR for low level control')
     # Neighbor
     # Neighbor Features
     p.add_argument('--quads_neighbor_visible_num', default=-1, type=int,

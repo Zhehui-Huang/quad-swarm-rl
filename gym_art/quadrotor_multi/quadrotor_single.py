@@ -160,7 +160,7 @@ class QuadrotorSingle:
                  init_random_state=False, sense_noise=None, verbose=False, gravity=GRAV,
                  t2w_std=0.005, t2t_std=0.0005, excite=False, dynamics_simplification=False, use_numba=False,
                  neighbor_obs_type='none', num_agents=1, num_use_neighbor_obs=0, use_obstacles=False,
-                 obst_obs_type='none', obs_rel_rot=False, obst_tof_resolution=4, dynamic_goal=False):
+                 obst_obs_type='none', obs_rel_rot=False, obst_tof_resolution=4, dynamic_goal=False, use_ctbr=False):
         np.seterr(under='ignore')
         """
         Args:
@@ -295,6 +295,8 @@ class QuadrotorSingle:
         
         self._seed()
 
+        self.use_ctbr = use_ctbr
+
     def update_sense_noise(self, sense_noise):
         if isinstance(sense_noise, dict):
             self.sense_noise = SensorNoise(**sense_noise)
@@ -316,7 +318,7 @@ class QuadrotorSingle:
                                           dynamics_steps_num=self.sim_steps, room_box=self.room_box,
                                           dim_mode=self.dim_mode, gravity=self.gravity,
                                           dynamics_simplification=self.dynamics_simplification,
-                                          use_numba=self.use_numba, dt=self.dt)
+                                          use_numba=self.use_numba, dt=self.dt, use_ctbr=self.use_ctbr)
         # CONTROL
         if self.raw_control:
             if self.dim_mode == '1D':  # Z axis only

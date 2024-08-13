@@ -35,7 +35,7 @@ class QuadrotorDynamics:
     """
 
     def __init__(self, model_params, room_box=None, dynamics_steps_num=1, dim_mode="3D", gravity=GRAV,
-                 dynamics_simplification=False, use_numba=False, dt=1/200):
+                 dynamics_simplification=False, use_numba=False, dt=1/200, use_ctbr=False):
         # Pre-set Parameters
         self.dt = dt
         self.use_numba = use_numba
@@ -91,9 +91,7 @@ class QuadrotorDynamics:
         else:
             raise ValueError('QuadEnv: Unknown dimensionality mode %s' % self.dim_mode)
         
-        self.use_ctbr = True
-        self.coll_min = 1
-        self.coll_max = 18
+        self.use_ctbr = use_ctbr
         
     def body_rate_controller_step(self, collective_thrust, desired_omega):
         """
@@ -111,18 +109,18 @@ class QuadrotorDynamics:
         motorForces = np.zeros(4)
         control_vector = np.zeros(4)
         
-        # print("Dynamics Desired State: ", self.control_thrust, self.control_omega)
+        # Controller Tuning
         tau_rp_rate = 0.015 # 0.015
         tau_yaw_rate = 0.0075 # 0.0075
-        
-        # print("CTBR PreClip: ", collective_thrust, desired_omega)
-        # collective_thrust_transformed = np.clip(collective_thrust, a_min=self.coll_min, a_max=self.coll_max)
-        collective_thrust_transformed = (collective_thrust * 17) + 1
-        # desired_omega_transformed = np.clip(desired_omega, a_min=-self.omega_max, a_max=self.omega_max)
-        desired_omega_transformed = (desired_omega * 70) - 35
 
-        
-        # print("CTBR Clip: ", collective_thrust_clipped, desired_omega_clipped)
+        # Collective Thrust Bounds
+        coll_min = 1
+        coll_max = 18
+
+        # The input collective thrust is given from [0, 1] (as the NN outputs), we need to convert to our desired collective thrust range
+        collective_thrust_transformed = (collective_thrust * (coll_max - coll_min)) + coll_min
+         # The input desired omega is given from [0, 1] (as the NN outputs), we need to convert to our desired omega range
+        desired_omega_transformed = (desired_omega * (self.omega_max*2)) - self.omega_max
         
         J = np.diag(self.inertia)
         omegaErr = np.array([(desired_omega_transformed[0] - self.omega[0]) / tau_rp_rate,
@@ -130,15 +128,11 @@ class QuadrotorDynamics:
                              (desired_omega_transformed[2] - self.omega[2]) / tau_yaw_rate])
 
         control_torque = mvmul(J, omegaErr)
-        # control_torque = np.matmul(J, omegaErr) # wtf is wrong with numpys lin alg?
         
         control_vector[0] = collective_thrust_transformed * self.mass
         control_vector[1] = control_torque[0]
         control_vector[2] = control_torque[1]
         control_vector[3] = control_torque[2]
-        
-        # print("Control Vector: ", control_vector)
-
         
         arm = 0.707106781 * self.model_params["geom"]["arms"]["l"]
         thrustPart = 0.25 * control_vector[0]
@@ -146,20 +140,15 @@ class QuadrotorDynamics:
         pitchPart = (0.25 / arm) * control_vector[2]; # Torque Y
         yawPart = (0.25 * control_vector[3]) / self.model_params["motor"]["torque_to_thrust"];
         
-        # print("Force Components: ", thrustPart, rollPart, pitchPart, yawPart)
-        
         motorForces[0] = thrustPart - rollPart - pitchPart - yawPart
         motorForces[1] = thrustPart - rollPart + pitchPart + yawPart
         motorForces[2] = thrustPart + rollPart + pitchPart - yawPart
         motorForces[3] = thrustPart + rollPart - pitchPart + yawPart        
-        # print("Desired Motor Forces: ", motorForces)
         motorForces[motorForces < 0] = 0.0
-
         
+        # Convert the desired motor thrusts to range [0,1] for the dynamics to handle
         thrusts = (1/self.thrust_max) * motorForces
         thrusts[thrusts > 1.0] = 1.0 
-        
-        # print("Normalized Thrusts: ", thrusts)
         
         return thrusts
         

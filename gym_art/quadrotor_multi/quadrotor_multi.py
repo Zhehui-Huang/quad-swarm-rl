@@ -37,7 +37,7 @@ class QuadrotorEnvMulti(gym.Env):
                  # Quadrotor Specific (Do Not Change)
                  dynamics_params, raw_control, raw_control_zero_middle,
                  dynamics_randomize_every, dynamics_change, dyn_sampler_1,
-                 sense_noise, init_random_state,
+                 sense_noise, init_random_state, use_ctbr, 
                  
                  # Rendering
                  render_mode='human'
@@ -226,9 +226,6 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Others
         self.apply_collision_force = True
-        
-        #Curriculum Metric
-        self.distance_to_goal_metric = [[] for _ in range(len(self.envs))] #Tracks the distance to goal for last 10 episode_extra_stats
 
     def all_dynamics(self):
         return tuple(e.dynamics for e in self.envs)

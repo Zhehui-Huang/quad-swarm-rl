@@ -9,7 +9,8 @@ GRAV = 9.81
 
 class CollectiveThrustBodyRate(object):
     """
-    Collective Thrust and Body Rate Controller.
+    Collective Thrust and Body Rate Controller. This implementation is intended to test the low level body rate controller.
+    The low level body rate controller is implemented in quadrotor_dynamics.py
     NOTE: The controllers quaternion representation is [x,y,z,w] but the sim is [w,x,y,z]
     """
     def __init__(self, dynamics, dynamics_params):
