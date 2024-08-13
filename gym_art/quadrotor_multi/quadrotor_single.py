@@ -198,6 +198,7 @@ class QuadrotorSingle:
         self.use_numba = use_numba
         self.obs_rel_rot = obs_rel_rot
         self.dynamic_goal = dynamic_goal
+        self.use_ctbr = use_ctbr
         self.base_rot = np.eye(3)
 
         # Room
@@ -294,8 +295,6 @@ class QuadrotorSingle:
         self.observation_space = self.make_observation_space()
         
         self._seed()
-
-        self.use_ctbr = use_ctbr
 
     def update_sense_noise(self, sense_noise):
         if isinstance(sense_noise, dict):

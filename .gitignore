@@ -12,5 +12,6 @@ _results
 *.wpr
 *.cprof
 *.egg-info/
+.vscode
 train_dir/
 wandb/
