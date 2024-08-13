@@ -73,7 +73,9 @@ class QuadrotorEnvMulti(gym.Env):
                 num_agents=num_agents,
                 neighbor_obs_type=neighbor_obs_type, num_use_neighbor_obs=self.num_use_neighbor_obs,
                 # Obstacle
-                use_obstacles=use_obstacles, obst_obs_type=obst_obs_type, obst_tof_resolution=obst_tof_resolution
+                use_obstacles=use_obstacles, obst_obs_type=obst_obs_type, obst_tof_resolution=obst_tof_resolution,
+                #Controller
+                use_ctbr=use_ctbr
             )
             self.envs.append(e)
 
