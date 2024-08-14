@@ -40,10 +40,15 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
     dist = np.linalg.norm(goal[:3] - dynamics.pos)
     cost_pos_raw = dist
     cost_pos = rew_coeff["pos"] * cost_pos_raw
-
-    # Penalize amount of control effort
-    cost_effort_raw = np.linalg.norm(action)
-    cost_effort = rew_coeff["effort"] * cost_effort_raw
+    
+    
+    if (dynamics.use_ctbr):
+        cost_effort_raw = np.linalg.norm(ctbr_action)
+        cost_effort = rew_coeff["effort"] * cost_effort_raw
+    else:
+        # Penalize amount of control effort for thrusts
+        cost_effort_raw = np.linalg.norm(action)
+        cost_effort = rew_coeff["effort"] * cost_effort_raw
 
     # Loss orientation
     if obs_rel_rot or dynamic_goal:
@@ -415,17 +420,23 @@ class QuadrotorSingle:
     def _step(self, action):
         self.actions[1] = copy.deepcopy(self.actions[0])
         self.actions[0] = copy.deepcopy(action)
+        ctbr_actions = copy.deepcopy(action)
 
         self.controller.step_func(dynamics=self.dynamics, action=action, goal=self.goal, dt=self.dt, observation=None)
 
         self.time_remain = self.ep_len - self.tick
         reward, rew_info = compute_reward_weighted(
             dynamics=self.dynamics, goal=self.goal, action=action, dt=self.dt, time_remain=self.time_remain,
-            rew_coeff=self.rew_coeff, action_prev=self.actions[1], on_floor=self.dynamics.on_floor,
+            rew_coeff=self.rew_coeff, ctbr_action=ctbr_actions, on_floor=self.dynamics.on_floor,
             obs_rel_rot=self.obs_rel_rot, base_rot=self.base_rot, dynamic_goal=self.dynamic_goal)
 
         self.tick += 1
         done = self.tick > self.ep_len
+        
+        # End the Episode early if we crash.
+        if (self.dynamics.crashed_wall or self.dynamics.crashed_ceiling or self.dynamics.crashed_floor):
+            done = True
+    
         sv = self.state_vector(self)
         self.traj_count += int(done)
 
