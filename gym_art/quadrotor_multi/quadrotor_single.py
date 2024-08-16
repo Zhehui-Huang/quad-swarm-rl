@@ -432,10 +432,6 @@ class QuadrotorSingle:
 
         self.tick += 1
         done = self.tick > self.ep_len
-        
-        # End the Episode early if we crash.
-        if (self.dynamics.crashed_wall or self.dynamics.crashed_ceiling or self.dynamics.crashed_floor or self.dynamics.on_floor):
-            done = True
     
         sv = self.state_vector(self)
         self.traj_count += int(done)

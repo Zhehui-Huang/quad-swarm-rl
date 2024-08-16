@@ -721,7 +721,6 @@ class QuadrotorEnvMulti(gym.Env):
                     self.low_h_count += 1
 
         # 7. DONES
-        # if any(dones):
         if all(dones):
             scenario_name = self.scenario.name()[9:]
             for i in range(len(infos)):
