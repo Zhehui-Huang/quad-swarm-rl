@@ -19,9 +19,9 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         self.start_point = [np.zeros(3) for i in range(num_agents)]
         self.end_point = [np.zeros(3) for i in range(num_agents)]
 
-        
-    def update_formation_size(self, new_formation_size):
-        pass
+        # The velocity of the trajectory is sampled from a normal distribution
+        self.vel_mean = 0.35
+        self.vel_std = 0.15
 
     def step(self):
         tick = self.envs[0].tick
@@ -37,10 +37,10 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
             
         for i, env in enumerate(self.envs):
             env.goal = self.end_point[i]
-        print(self.goals[0][2])
+        
         return
 
-    def reset(self, obst_map, cell_centers): 
+    def reset(self, obst_map=None, cell_centers=None, sim2real_scenario=False): 
   
         self.obstacle_map = obst_map
         self.cell_centers = cell_centers
@@ -61,10 +61,18 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
             
             # Fix the goal height at 0.65 m
             final_goal[2] = 0.65
-
+            
             dist = np.linalg.norm(self.start_point[i] - final_goal)
+            
+            #Sample speed between 0.9 and 1.1 m/s
+            traj_speed = np.random.normal(self.vel_mean, self.vel_std)
 
-            traj_duration = np.random.uniform(low=dist / 2.0, high=self.envs[0].ep_time-2)
+            if (traj_speed < 0.15):
+                traj_speed = 0.15
+            if (traj_speed > 0.8):
+                traj_speed = 0.8
+
+            traj_duration = dist / traj_speed
    
             goal_yaw = np.random.uniform(low=-3.14, high=3.14)
 

@@ -1,5 +1,6 @@
 import numpy as np
 from numba import njit
+import math
 
 from gym_art.quadrotor_multi.quad_utils import EPS
 from gym_art.quadrotor_multi.collisions.utils import compute_new_vel, compute_new_omega
@@ -107,27 +108,16 @@ def calculate_drone_obst_proximity_penalties(r_drone, r_obst, penalty_coeff, pen
                                              quads_pos, quads_vel, obst_pos, dt):
     penalties = np.zeros(len(quads_pos))
     for qid in range(len(quads_pos)):
-        q_vel = quads_vel[qid]
-        q_speed = np.linalg.norm(q_vel)
-        penalty_item = 0.0
+        min_dist = np.inf
         for oid in range(len(obst_pos)):
             rel_pos = obst_pos[oid] - quads_pos[qid]
             dist = np.linalg.norm(rel_pos)
-            # theta: angle between q_vel and obst_pos - q_pos
-            cos_theta = np.dot(q_vel, rel_pos) / (q_speed * dist)
-            theta = np.arccos(cos_theta)
-            # alpha: (r_drone + r_obst) / dist
-            sin_alpha = (r_drone + r_obst) / dist
-            alpha = np.arcsin(sin_alpha)
+            
+            min_dist = min(min_dist, dist)
 
-            penalty_bool = float(theta <= alpha) * float(dist <= (penalty_range + r_drone + r_obst))
-            tmp_penalty = penalty_bool * penalty_coeff * (q_speed * cos_theta)
-            penalty_item = max(penalty_item, tmp_penalty)
-
-        penalties[qid] = penalty_item
+        penalties[qid] = penalty_coeff * math.exp((-1*penalty_range)*(min_dist+r_obst+r_drone))
 
     return dt * penalties
-
 
 def unit_test():
     penalties = calculate_drone_obst_proximity_penalties(

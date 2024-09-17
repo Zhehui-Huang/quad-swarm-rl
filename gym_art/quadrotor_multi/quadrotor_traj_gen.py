@@ -312,7 +312,7 @@ if __name__ == "__main__":
                     self.assertLess(np.linalg.norm(next_goal.pos), max_room_dist, "Failed Goal Position Boundary")
                     
                     t += 0.05
-        
+
         def test_random_goal(self):
             sim_time = 15
 

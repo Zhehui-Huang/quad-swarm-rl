@@ -9,6 +9,15 @@ def generate_c_model_attention(model, output_path, output_folder, testing=False)
     info = generate_c_weights_attention(model, transpose=True)
     model_state_dict = model.state_dict()
 
+    if 'obs_normalizer.running_mean_std.running_mean_std.obs.running_mean' in model_state_dict.keys():
+        mean = model_state_dict['obs_normalizer.running_mean_std.running_mean_std.obs.running_mean']
+        var = model_state_dict['obs_normalizer.running_mean_std.running_mean_std.obs.running_var']
+        m_str = process_layer('mean', mean, layer_type='bias')
+        v_str = process_layer('var', var, layer_type='bias')
+    else:
+        m_str = ""
+        v_str = ""
+
     source = ""
     structures = ""
     methods = ""
@@ -65,6 +74,9 @@ def generate_c_model_attention(model, output_path, output_folder, testing=False)
         for b in biases:
             source += b
 
+    source += m_str
+    source += v_str
+
     source += methods
 
     if testing:
@@ -105,12 +117,12 @@ def generate_c_weights_attention(model, transpose=False):
                 self_weights.append(weight)
                 outputs.append('static float output_' + str(n_self) + '[' + str(param.shape[1]) + '];\n')
                 n_self += 1
-            elif 'neighbor_embed' in c_name:
+            elif 'neighbor' in c_name:
                 nbr_layer_names.append(name)
                 neighbor_weights.append(weight)
                 outputs.append('static float nbr_output_' + str(n_nbr) + '[' + str(param.shape[1]) + '];\n')
                 n_nbr += 1
-            elif 'obstacle_embed' in c_name:
+            elif 'obstacle' in c_name:
                 obst_layer_names.append(name)
                 obst_weights.append(weight)
                 outputs.append('static float obst_output_' + str(n_obst) + '[' + str(param.shape[1]) + '];\n')
@@ -130,10 +142,10 @@ def generate_c_weights_attention(model, transpose=False):
             if 'self_embed' in c_name:
                 self_bias_names.append(name)
                 self_biases.append(bias)
-            elif 'neighbor_embed' in c_name:
+            elif 'neighbor' in c_name:
                 nbr_bias_names.append(name)
                 neighbor_biases.append(bias)
-            elif 'obstacle_embed' in c_name:
+            elif 'obstacle' in c_name:
                 obst_bias_names.append(name)
                 obst_biases.append(bias)
             elif 'attention' in c_name or 'layer_norm' in c_name:
@@ -236,52 +248,63 @@ def self_encoder_attn_c_str(prefix, weight_names, bias_names):
 
 
 def neighbor_encoder_c_string(prefix, weight_names, bias_names):
-    method = """void neighborEmbedder(const float neighbor_inputs[NEIGHBORS * NBR_DIM]) {
+    method = """void neighborEmbedder(volatile float neighbor_inputs[NEIGHBORS * NBR_OBS_DIM]) {
     """
     num_layers = len(weight_names)
-
-    # write the for loops for forward-prop
     for_loops = []
-    input_for_loop = f'''
-            for (int i = 0; i < {prefix}_structure[0][1]; i++) {{
-                {prefix}_output_0[i] = 0; 
-                for (int j = 0; j < {prefix}_structure[0][0]; j++) {{
-                    {prefix}_output_0[i] += neighbor_inputs[j] * actor_encoder_neighbor_embed_layer_0_weight[j][i]; 
-                }}
-                {prefix}_output_0[i] += actor_encoder_neighbor_embed_layer_0_bias[i];
-                {prefix}_output_0[i] = tanhf({prefix}_output_0[i]);
-            }}
-    '''
-    for_loops.append(input_for_loop)
-
-    # hidden layers
-    for n in range(1, num_layers - 1):
-        for_loop = f'''
-                for (int i = 0; i < {prefix}_structure[{str(n)}][1]; i++) {{
-                    {prefix}_output_{str(n)}[i] = 0;
-                    for (int j = 0; j < {prefix}_structure[{str(n)}][0]; j++) {{
-                        output_{str(n)}[i] += output_{str(n - 1)}[j] * {weight_names[n].replace('.', '_')}[j][i];
+    if num_layers == 1:
+        input_for_loop = f'''
+                for (int i = 0; i < {prefix}_structure[0][1]; i++) {{
+                    neighbor_embeds[i] = 0; 
+                    for (int j = 0; j < {prefix}_structure[0][0]; j++) {{
+                        neighbor_embeds[i] += neighbor_inputs[j] * actor_encoder_neighbor_embed_layer_0_weight[j][i]; 
                     }}
-                    output_{str(n)}[i] += {bias_names[n].replace('.', '_')}[i];
-                    output_{str(n)}[i] = tanhf(output_{str(n)}[i]);
+                    neighbor_embeds[i] += actor_encoder_neighbor_embed_layer_0_bias[i];
+               }}
+        '''
+        for_loops.append(input_for_loop)
+    else:
+        # write the for loops for forward-prop
+        input_for_loop = f'''
+                for (int i = 0; i < {prefix}_structure[0][1]; i++) {{
+                    {prefix}_output_0[i] = 0; 
+                    for (int j = 0; j < {prefix}_structure[0][0]; j++) {{
+                        {prefix}_output_0[i] += neighbor_inputs[j] * actor_encoder_neighbor_embed_layer_0_weight[j][i]; 
+                    }}
+                    {prefix}_output_0[i] += actor_encoder_neighbor_embed_layer_0_bias[i];
+                    {prefix}_output_0[i] = tanhf({prefix}_output_0[i]);
                 }}
         '''
-        for_loops.append(for_loop)
+        for_loops.append(input_for_loop)
 
-    # the last hidden layer which is supposed to have no non-linearity
-    n = num_layers - 1
-    if n > 0:
-        output_for_loop = f'''
-                for (int i = 0; i < {prefix}_structure[{str(n)}][1]; i++) {{
-                    output_{str(n)}[i] = 0;
-                    for (int j = 0; j < {prefix}_structure[{str(n)}][0]; j++) {{
-                        output_{str(n)}[i] += output_{str(n - 1)}[j] * {weight_names[n].replace('.', '_')}[j][i];
+        # hidden layers
+        for n in range(1, num_layers - 1):
+            for_loop = f'''
+                    for (int i = 0; i < {prefix}_structure[{str(n)}][1]; i++) {{
+                        {prefix}_output_{str(n)}[i] = 0;
+                        for (int j = 0; j < {prefix}_structure[{str(n)}][0]; j++) {{
+                            output_{str(n)}[i] += output_{str(n - 1)}[j] * {weight_names[n].replace('.', '_')}[j][i];
+                        }}
+                        output_{str(n)}[i] += {bias_names[n].replace('.', '_')}[i];
+                        output_{str(n)}[i] = tanhf(output_{str(n)}[i]);
                     }}
-                    output_{str(n)}[i] += {bias_names[n].replace('.', '_')}[i];
-                    neighbor_embeds[i] += output_{str(n)}[i]; 
-                }}
-        '''
-        for_loops.append(output_for_loop)
+            '''
+            for_loops.append(for_loop)
+
+        # the last hidden layer which is supposed to have no non-linearity
+        n = num_layers - 1
+        if n > 0:
+            output_for_loop = f'''
+                    for (int i = 0; i < {prefix}_structure[{str(n)}][1]; i++) {{
+                        output_{str(n)}[i] = 0;
+                        for (int j = 0; j < {prefix}_structure[{str(n)}][0]; j++) {{
+                            output_{str(n)}[i] += output_{str(n - 1)}[j] * {weight_names[n].replace('.', '_')}[j][i];
+                        }}
+                        output_{str(n)}[i] += {bias_names[n].replace('.', '_')}[i];
+                        neighbor_embeds[i] += output_{str(n)}[i]; 
+                    }}
+            '''
+            for_loops.append(output_for_loop)
 
     for code in for_loops:
         method += code
@@ -291,55 +314,69 @@ def neighbor_encoder_c_string(prefix, weight_names, bias_names):
 
 
 def obstacle_encoder_c_str(prefix, weight_names, bias_names):
-    method = f"""void obstacleEmbedder(float obstacle_inputs[OBST_DIM]) {{
+    method = f"""void obstacleEmbedder(volatile float obstacle_inputs[OBST_DIM]) {{
         //reset embeddings accumulator to zero
         memset(obstacle_embeds, 0, sizeof(obstacle_embeds));
 
     """
     num_layers = len(weight_names)
-
-    # write the for loops for forward-prop
-    for_loops = []
-    input_for_loop = f'''
-        for (int i = 0; i < {prefix}_structure[0][1]; i++) {{
-            {prefix}_output_0[i] = 0;
-            for (int j = 0; j < {prefix}_structure[0][0]; j++) {{
-                {prefix}_output_0[i] += obstacle_inputs[j] * {weight_names[0].replace('.', '_')}[j][i];
-            }}
-            {prefix}_output_0[i] += {bias_names[0].replace('.', '_')}[i];
-            {prefix}_output_0[i] = tanhf({prefix}_output_0[i]);
-        }}
-    '''
-    for_loops.append(input_for_loop)
-
-    # rest of the hidden layers
-    for n in range(1, num_layers - 1):
-        for_loop = f'''
-            for (int i = 0; i < {prefix}_structure[{str(n)}][1]; i++) {{
-                output_{str(n)}[i] = 0;
-                for (int j = 0; j < {prefix}_structure[{str(n)}][0]; j++) {{
-                    output_{str(n)}[i] += output_{str(n - 1)}[j] * {weight_names[n].replace('.', '_')}[j][i];
+    if num_layers == 1:
+        # write the for loops for forward-prop
+        for_loops = []
+        input_for_loop = f'''
+                for (int i = 0; i < {prefix}_structure[0][1]; i++) {{
+                    obstacle_embeds[i] = 0;
+                    for (int j = 0; j < {prefix}_structure[0][0]; j++) {{
+                        obstacle_embeds[i] += obstacle_inputs[j] * {weight_names[0].replace('.', '_')}[j][i];
+                    }}
+                    obstacle_embeds[i] += {bias_names[0].replace('.', '_')}[i];
                 }}
-                output_{str(n)}[i] += {bias_names[n].replace('.', '_')}[i];
-                output_{str(n)}[i] = tanhf(output_{str(n)}[i]);
+            '''
+        for_loops.append(input_for_loop)
+    else:
+
+        # write the for loops for forward-prop
+        for_loops = []
+        input_for_loop = f'''
+            for (int i = 0; i < {prefix}_structure[0][1]; i++) {{
+                {prefix}_output_0[i] = 0;
+                for (int j = 0; j < {prefix}_structure[0][0]; j++) {{
+                    {prefix}_output_0[i] += obstacle_inputs[j] * {weight_names[0].replace('.', '_')}[j][i];
+                }}
+                {prefix}_output_0[i] += {bias_names[0].replace('.', '_')}[i];
+                {prefix}_output_0[i] = tanhf({prefix}_output_0[i]);
             }}
         '''
-        for_loops.append(for_loop)
+        for_loops.append(input_for_loop)
 
-    # the last hidden layer which is supposed to have no non-linearity
-    n = num_layers - 1
-    if n > 0:
-        output_for_loop = f'''
-            for (int i = 0; i < {prefix}_structure[{str(n)}][1]; i++) {{
-                output_{str(n)}[i] = 0;
-                for (int j = 0; j < {prefix}_structure[{str(n)}][0]; j++) {{
-                    output_{str(n)}[i] += output_{str(n - 1)}[j] * {weight_names[n].replace('.', '_')}[j][i];
+        # rest of the hidden layers
+        for n in range(1, num_layers - 1):
+            for_loop = f'''
+                for (int i = 0; i < {prefix}_structure[{str(n)}][1]; i++) {{
+                    output_{str(n)}[i] = 0;
+                    for (int j = 0; j < {prefix}_structure[{str(n)}][0]; j++) {{
+                        output_{str(n)}[i] += output_{str(n - 1)}[j] * {weight_names[n].replace('.', '_')}[j][i];
+                    }}
+                    output_{str(n)}[i] += {bias_names[n].replace('.', '_')}[i];
+                    output_{str(n)}[i] = tanhf(output_{str(n)}[i]);
                 }}
-                output_{str(n)}[i] += {bias_names[n].replace('.', '_')}[i];
-                obstacle_embeds[i] += output_{str(n)}[i];
-            }}
-        '''
-        for_loops.append(output_for_loop)
+            '''
+            for_loops.append(for_loop)
+
+        # the last hidden layer which is supposed to have no non-linearity
+        n = num_layers - 1
+        if n > 0:
+            output_for_loop = f'''
+                for (int i = 0; i < {prefix}_structure[{str(n)}][1]; i++) {{
+                    output_{str(n)}[i] = 0;
+                    for (int j = 0; j < {prefix}_structure[{str(n)}][0]; j++) {{
+                        output_{str(n)}[i] += output_{str(n - 1)}[j] * {weight_names[n].replace('.', '_')}[j][i];
+                    }}
+                    output_{str(n)}[i] += {bias_names[n].replace('.', '_')}[i];
+                    obstacle_embeds[i] += output_{str(n)}[i];
+                }}
+            '''
+            for_loops.append(output_for_loop)
 
     for code in for_loops:
         method += code

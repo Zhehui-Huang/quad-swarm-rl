@@ -35,9 +35,9 @@ float exponent;
 
 headers_multi_agent_attention = """
 // attention stuff
-static const int D_MODEL = 16;
-static const int NUM_TOKENS = 2;
-static const float EPS = 0.000001; // 1e-6
+#define D_MODEL 12
+#define NUM_TOKENS 2
+#define EPS 0.000001 // 1e-6
 
 static float tokens[NUM_TOKENS][D_MODEL];
 static float q_outputs[NUM_TOKENS][D_MODEL];
@@ -55,6 +55,8 @@ static float last_layer_variances[NUM_TOKENS];
 static float attn_embeds[NUM_TOKENS][D_MODEL];
 
 static float output_embeds[3 * D_MODEL];
+static float obstacle_embeds[12];
+static float neighbor_embeds[12];
 
 float base;
 float exponent;
@@ -176,8 +178,8 @@ void singleHeadAttention() {
         uint8_t i, j, k;
         // fill the tokens matrix with obstacle and neighbor embeddings
         for (i = 0; i < D_MODEL; i++) {
-            tokens[0][i] = nbr_output_0[i];
-            tokens[1][i] = obst_output_0[i];
+            tokens[0][i] = neighbor_embeds[i];
+            tokens[1][i] = obstacle_embeds[i];
         }
         
         // save the residual

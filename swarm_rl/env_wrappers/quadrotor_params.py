@@ -22,12 +22,11 @@ def add_quadrotors_env_args(env, parser):
                    help='obs space for quadrotor self')
     p.add_argument('--quads_obs_rel_rot', default=False, type=str2bool, help='use relative rotation or not')
     p.add_argument('--quads_dynamic_goal', default=True, type=str2bool, help='use relative observations for all states. Only for dynamic goal scenarios.')
-    p.add_argument('--quads_use_curriculum', default=False, type=str2bool, help='Use scenario curriculum or not')
     p.add_argument('--quads_episode_duration', default=15.0, type=float,
                    help='Override default value for episode duration')
     p.add_argument('--quads_encoder_type', default='corl', choices=['corl', 'attention'], type=str,
                    help='The type of the neighborhood encoder')
-
+    p.add_argument('--quads_use_ctbr', default=False, type=str2bool, help='Use CTBR for low level control')
     # Neighbor
     # Neighbor Features
     p.add_argument('--quads_neighbor_visible_num', default=-1, type=int,
@@ -114,7 +113,8 @@ def add_quadrotors_env_args(env, parser):
                             'ep_lissajous3D', 'ep_rand_bezier', 'swarm_vs_swarm', 'swap_goals', 'dynamic_formations',
                             'mix', 'o_uniform_same_goal_spawn', 'o_random',
                             'o_dynamic_diff_goal', 'o_dynamic_same_goal', 'o_diagonal', 'o_static_same_goal',
-                            'o_static_diff_goal', 'o_swap_goals', 'o_ep_rand_bezier', 'o_random_dynamic_goal', 'o_random_dynamic_goal_curriculum'],
+                            'o_static_diff_goal', 'o_swap_goals', 'o_ep_rand_bezier', 'o_random_dynamic_goal',
+                            'o_random_dynamic_goal_curriculum', 'sim2real_A', 'sim2real_B'],
                    help='Choose which scenario to run. ep = evader pursuit')
 
     # Room

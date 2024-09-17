@@ -12,7 +12,7 @@ _params = ParamGrid(
 
 OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_1 + (
     ' --quads_obst_grid_size=0.5 --quads_obst_spawn_center=False --quads_obst_grid_size_range 0.5 0.8 '
-    '--quads_mode=o_random_dynamic_goal_curriculum --quads_obs_rel_rot=False --quads_dynamic_goal=True --quads_use_curriculum=True '
+    '--quads_mode=o_random_dynamic_goal_curriculum --quads_obs_rel_rot=False --quads_dynamic_goal=True '
     '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=darren-personal '
     '--wandb_group=dynamic_goal_discrete_curriculum'
 )

@@ -32,11 +32,18 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
 
     rew_coeff = DEFAULT_QUAD_REWARD_SHAPING['quad_rewards']
     use_replay_buffer = cfg.replay_buffer_sample_prob > 0.0
+    if cfg.quads_mode == "sim2real_A" or cfg.quads_mode == "sim2real_B":
+        sim2real_scenario = cfg.quads_mode[-1]
+        quads_mode = "o_random"
+        quads_obst_grid_size = 0.5
+    else:
+        sim2real_scenario = None
+        quads_mode = cfg.quads_mode
+        quads_obst_grid_size = cfg.quads_obst_grid_size
 
     env = QuadrotorEnvMulti(
         num_agents=cfg.quads_num_agents, ep_time=cfg.quads_episode_duration, rew_coeff=rew_coeff,
-        obs_repr=cfg.quads_obs_repr, obs_rel_rot=cfg.quads_obs_rel_rot, dynamic_goal=False,
-        use_curriculum=cfg.quads_use_curriculum,
+        obs_repr=cfg.quads_obs_repr, obs_rel_rot=cfg.quads_obs_rel_rot, dynamic_goal=False, use_ctbr=cfg.quads_use_ctbr,
         # Neighbor
         neighbor_visible_num=cfg.quads_neighbor_visible_num, neighbor_obs_type=cfg.quads_neighbor_obs_type,
         collision_hitbox_radius=cfg.quads_collision_hitbox_radius,
@@ -44,7 +51,7 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         # Obstacle
         use_obstacles=cfg.quads_use_obstacles, obst_density=cfg.quads_obst_density, obst_size=cfg.quads_obst_size,
         obst_spawn_area=cfg.quads_obst_spawn_area, obst_obs_type=cfg.quads_obstacle_obs_type,
-        obst_noise=cfg.quads_obst_noise, grid_size=cfg.quads_obst_grid_size,
+        obst_noise=cfg.quads_obst_noise, grid_size=quads_obst_grid_size,
         obst_tof_resolution=cfg.quads_obstacle_tof_resolution, obst_spawn_center=cfg.quads_obst_spawn_center,
         obst_grid_size_random=cfg.quads_obst_grid_size_random, obst_grid_size_range=cfg.quads_obst_grid_size_range,
         obst_penalty_range=cfg.quads_obst_collision_smooth_penalty_range,
@@ -54,7 +61,7 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         # Numba Speed Up
         use_numba=cfg.quads_use_numba,
         # Scenarios
-        quads_mode=cfg.quads_mode,
+        quads_mode=quads_mode, sim2real_scenario=sim2real_scenario,
         # Room
         room_dims=cfg.quads_room_dims,
         # Replay Buffer
