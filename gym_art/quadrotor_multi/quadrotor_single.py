@@ -320,7 +320,6 @@ class QuadrotorSingle:
                                           dynamics_simplification=self.dynamics_simplification,
                                           use_numba=self.use_numba, dt=self.dt, use_ctbr=self.use_ctbr)
 
-
         # CONTROL
         if self.raw_control:
             if self.dim_mode == '1D':  # Z axis only
@@ -425,7 +424,6 @@ class QuadrotorSingle:
         self.time_remain = self.ep_len - self.tick
         reward, rew_info = compute_reward_weighted(
             dynamics=self.dynamics, goal=self.goal, action=action, dt=self.dt, time_remain=self.time_remain,
-            rew_coeff=self.rew_coeff, action_prev=self.actions[1], on_floor=self.dynamics.on_floor,
             rew_coeff=self.rew_coeff, action_prev=self.actions[1], on_floor=self.dynamics.on_floor,
             obs_rel_rot=self.obs_rel_rot, base_rot=self.base_rot, dynamic_goal=self.dynamic_goal)
 

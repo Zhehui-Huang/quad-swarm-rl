@@ -3,7 +3,6 @@ from copy import deepcopy
 import numpy as np
 from gymnasium import spaces
 from numba import njit
-from ctypes import *
 
 from gym_art.quadrotor_multi.inertia import QuadLink, QuadLinkSimplified
 from gym_art.quadrotor_multi.numba_utils import OUNoiseNumba, angvel2thrust_numba, numba_cross
