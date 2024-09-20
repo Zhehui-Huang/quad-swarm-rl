@@ -33,20 +33,21 @@ GRAV = 9.81  # default gravitational constant
 
 
 # reasonable reward function for hovering at a goal and not flying too high
-def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, ctbr_action, on_floor=False,
+def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, action_prev, on_floor=False,
                             obs_rel_rot=False, base_rot=np.eye(3), dynamic_goal=False):
     
     # Distance to the goal
     dist = np.linalg.norm(goal[:3] - dynamics.pos)
     cost_pos_raw = dist
     cost_pos = rew_coeff["pos"] * cost_pos_raw
-    
+
     
     if (dynamics.use_ctbr):
-        cost_effort_raw = np.linalg.norm(ctbr_action)
+        omega_middle = 0.5 * np.ones(3)
+        cost_effort_raw = np.linalg.norm(action[1:4] - omega_middle) # NN action of 0.5 is omega=0
+        cost_effort_raw += action[0]
         cost_effort = rew_coeff["effort"] * cost_effort_raw
-    else:
-        # Penalize amount of control effort for thrusts
+    else:    
         cost_effort_raw = np.linalg.norm(action)
         cost_effort = rew_coeff["effort"] * cost_effort_raw
 
@@ -323,6 +324,7 @@ class QuadrotorSingle:
                                           dim_mode=self.dim_mode, gravity=self.gravity,
                                           dynamics_simplification=self.dynamics_simplification,
                                           use_numba=self.use_numba, dt=self.dt, use_ctbr=self.use_ctbr)
+
         # CONTROL
         if self.raw_control:
             if self.dim_mode == '1D':  # Z axis only
@@ -420,14 +422,13 @@ class QuadrotorSingle:
     def _step(self, action):
         self.actions[1] = copy.deepcopy(self.actions[0])
         self.actions[0] = copy.deepcopy(action)
-        ctbr_actions = copy.deepcopy(action)
 
         self.controller.step_func(dynamics=self.dynamics, action=action, goal=self.goal, dt=self.dt, observation=None)
 
         self.time_remain = self.ep_len - self.tick
         reward, rew_info = compute_reward_weighted(
             dynamics=self.dynamics, goal=self.goal, action=action, dt=self.dt, time_remain=self.time_remain,
-            rew_coeff=self.rew_coeff, ctbr_action=ctbr_actions, on_floor=self.dynamics.on_floor,
+            rew_coeff=self.rew_coeff, action_prev=self.actions[1], on_floor=self.dynamics.on_floor,
             obs_rel_rot=self.obs_rel_rot, base_rot=self.base_rot, dynamic_goal=self.dynamic_goal)
 
         self.tick += 1

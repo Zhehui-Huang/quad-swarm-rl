@@ -61,6 +61,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Generate All Quadrotors
         self.envs = []
+        
         for i in range(self.num_agents):
             e = QuadrotorSingle(
                 # Quad Parameters
@@ -484,7 +485,6 @@ class QuadrotorEnvMulti(gym.Env):
 
         for i, a in enumerate(actions):
             self.envs[i].rew_coeff = self.rew_coeff
-
             observation, reward, done, info = self.envs[i].step(a)
             obs.append(observation)
             rewards.append(reward)

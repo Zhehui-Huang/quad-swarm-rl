@@ -2,9 +2,9 @@
 
 Currently, we support:
 - [x] Single drone, w/o obstacles.
-- [ ] Single drone, w/ obstacles.
+- [x] Single drone, w/ obstacles.
 - [x] Multiple drones, w/o obstacles.
-- [ ] Multiple drones, w/ obstacles.
+- [x] Multiple drones, w/ obstacles.
 
 # How to run the code
 ## Single drone, w/o obstacles
