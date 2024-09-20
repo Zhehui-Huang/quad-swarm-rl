@@ -185,6 +185,7 @@ class QuadrotorDynamics:
 
         J = np.diag(self.inertia)
 
+
         omegaErr = np.array([(desired_omega_transformed[0] - self.omega[0]) / tau_rp_rate,
                              (desired_omega_transformed[1] - self.omega[1]) / tau_rp_rate, 
                              (desired_omega_transformed[2] - self.omega[2]) / tau_yaw_rate])
@@ -193,9 +194,13 @@ class QuadrotorDynamics:
 
         # control_vector[0] = collective_thrust_transformed * self.mass        
         control_vector[0] = collective_thrust_transformed # This is in Newtons.
+
+        # control_vector[0] = collective_thrust_transformed * self.mass        
+        control_vector[0] = collective_thrust_transformed # This is in Newtons.
         control_vector[1] = control_torque[0]
         control_vector[2] = control_torque[1]
         control_vector[3] = control_torque[2]
+
 
         
         arm = 0.707106781 * self.model_params["geom"]["arms"]["l"]
@@ -216,6 +221,11 @@ class QuadrotorDynamics:
         #     motor_pwm[i] = (-pwmToThrustB + (pwmToThrustB * pwmToThrustB + 4.0* pwmToThrustA*motor)**0.5) / (2.0 * pwmToThrustA)
         
         # Convert the desired motor thrusts to range [0,1] for the dynamics to handle
+        thrusts = (1/max_single_rotor_thrust) * motorForces
+        
+        #Additional Clipping
+        thrusts[thrusts > 1.0] = 1.0
+        thrusts[thrusts < 0.0] = 0.0
         thrusts = (1/max_single_rotor_thrust) * motorForces
         
         #Additional Clipping
@@ -266,7 +276,8 @@ class QuadrotorDynamics:
             print("WARNING: Motor assymetry was not setup. Setting assymetry to:", self.motor_assymetry)
         self.motor_assymetry = self.motor_assymetry * 4. / np.sum(self.motor_assymetry)  # re-normalizing to sum-up to 4
         # self.thrust_max = (GRAV * self.mass * self.thrust_to_weight * self.motor_assymetry / 4.0)
-        self.thrust_max = (GRAV * self.mass * self.thrust_to_weight * self.motor_assymetry / 4.0) * 1.25
+        # self.thrust_max = (GRAV * self.mass * self.thrust_to_weight * self.motor_assymetry / 4.0)
+        self.thrust_max = ((GRAV * self.mass * self.thrust_to_weight * self.motor_assymetry / 4.0) * 1.25) * 1.25
         self.torque_max = self.torque_to_thrust * self.thrust_max  # propeller torque scales
 
         # Propeller positions in X configurations

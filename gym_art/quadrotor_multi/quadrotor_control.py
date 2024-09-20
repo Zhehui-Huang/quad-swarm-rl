@@ -166,7 +166,7 @@ class CollectiveThrustBodyRate(object):
             rotAxisI = np.array([1.0,1.0,0.0])
 
         attErrorReduced[3] = np.cos(alpha / 2.0)
-        attErrorReduced[0] = np.sin(alpha / 2.0) * rotAxisI[0] #unstable behavior here
+        attErrorReduced[0] = np.sin(alpha / 2.0) * rotAxisI[0] 
         attErrorReduced[1] = np.sin(alpha / 2.0) * rotAxisI[1]
         attErrorReduced[2] = np.sin(alpha / 2.0) * rotAxisI[2]
         
@@ -274,17 +274,6 @@ class CollectiveThrustBodyRate(object):
     def vcross(self, a, b):
         return np.array([(a[1]*b[2]) - (a[2]*b[1]), (a[2]*b[0]) - (a[0]*b[2]), (a[0]*b[1]) - (a[1]*b[0])])
         
-        
-    # This function might not be necessary during Simulation?
-    def compute_desired_pwm(self, desired_thrusts):
-        for i in range(4):
-            desired_thrust = desired_thrusts[i]
-            motor_pwm = (-self.pwmToThrustB + math.sqrt(self.pwmToThrustB * self.pwmToThrustB + 4.0 * self.pwmToThrustA * desired_thrust)) / (2.0 * self.pwmToThrustA)
-            normalized_actions[i] = motor_pwm
-            # actions[i] = action
-
-        normalized_actions = np.clip(normalized_actions, a_min=-np.ones(4), a_max=np.ones(4))
-        normalized_actions = 0.5* (normalized_actions + 1.0)
     
     def vdot(self, a, b):
         return (a[0] * b[0]) + (a[1] * b[1]) + (a[2] * b[2])
