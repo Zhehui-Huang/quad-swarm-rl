@@ -31,7 +31,7 @@ class QuadrotorEnvMulti(gym.Env):
                  obst_penalty_range,
 
                  # Aerodynamics, Numba Speed Up, Scenarios, Room, Replay Buffer, Rendering
-                 use_downwash, use_numba, quads_mode, sim2real_scenario, room_dims, use_replay_buffer, quads_view_mode,
+                 use_downwash, z_overlap, use_numba, quads_mode, sim2real_scenario, room_dims, use_replay_buffer, quads_view_mode,
                  quads_render,
 
                  # Quadrotor Specific (Do Not Change)
@@ -74,6 +74,7 @@ class QuadrotorEnvMulti(gym.Env):
                 neighbor_obs_type=neighbor_obs_type, num_use_neighbor_obs=self.num_use_neighbor_obs,
                 # Obstacle
                 use_obstacles=use_obstacles, obst_obs_type=obst_obs_type, obst_tof_resolution=obst_tof_resolution,
+                obst_spawn_area=obst_spawn_area,
                 #Controller
                 use_ctbr=use_ctbr
             )

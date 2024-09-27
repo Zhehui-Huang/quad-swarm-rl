@@ -40,8 +40,9 @@ class Scenario_o_dynamic_same_goal(Scenario_o_base):
         obst_map_locs = np.where(self.obstacle_map == 0)
         self.free_space = list(zip(*obst_map_locs))
 
-        self.start_point = self.generate_pos_obst_map_2(num_agents=self.num_agents)
-        self.end_point = self.max_square_area_center()
+        # self.start_point = self.generate_pos_obst_map_2(num_agents=self.num_agents)
+        # self.end_point = self.max_square_area_center()
+        self.start_point, self.end_point = self.generate_pos_v3(num_agents=self.num_agents)
 
         # Reset formation and related parameters
         self.update_formation_and_relate_param()

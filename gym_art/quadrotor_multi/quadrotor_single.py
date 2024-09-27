@@ -160,7 +160,8 @@ class QuadrotorSingle:
                  init_random_state=False, sense_noise=None, verbose=False, gravity=GRAV,
                  t2w_std=0.005, t2t_std=0.0005, excite=False, dynamics_simplification=False, use_numba=False,
                  neighbor_obs_type='none', num_agents=1, num_use_neighbor_obs=0, use_obstacles=False,
-                 obst_obs_type='none', obs_rel_rot=False, obst_tof_resolution=4, dynamic_goal=False, use_ctbr=False):
+                 obst_obs_type='none', obs_rel_rot=False, obst_tof_resolution=4, obst_spawn_area=[15.0, 8.0],
+                 dynamic_goal=False, use_ctbr=False):
         np.seterr(under='ignore')
         """
         Args:
@@ -209,6 +210,7 @@ class QuadrotorSingle:
                                   [self.room_length / 2., self.room_width / 2., self.room_height]])
 
         self.init_random_state = init_random_state
+        self.obst_spawn_area = obst_spawn_area
 
         # Preset parameters
         self.obs_repr = obs_repr
