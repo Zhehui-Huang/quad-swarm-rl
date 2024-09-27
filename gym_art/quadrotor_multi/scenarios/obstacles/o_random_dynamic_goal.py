@@ -51,16 +51,18 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         obst_map_locs = np.where(self.obstacle_map == 0)
         self.free_space = list(zip(*obst_map_locs))
 
+        pos_area_flag = np.random.choice([0, 1])
         for i in range(self.num_agents):
-            self.start_point[i] = self.generate_pos_obst_map()
+            # self.start_point[i] = self.generate_pos_obst_map()
+            self.start_point[i], final_goal = self.generate_pos_v3(pos_area_flag=pos_area_flag)
             
             initial_state = traj_eval()
             initial_state.set_initial_pos(self.start_point[i])
             
-            final_goal = self.generate_pos_obst_map()
+            # final_goal = self.generate_pos_obst_map()
             
             # Fix the goal height at 0.65 m
-            final_goal[2] = 0.65
+            # final_goal[2] = 0.65
             
             dist = np.linalg.norm(self.start_point[i] - final_goal)
             
@@ -74,7 +76,8 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
 
             traj_duration = dist / traj_speed
    
-            goal_yaw = np.random.uniform(low=-3.14, high=3.14)
+            # goal_yaw = np.random.uniform(low=-3.14, high=3.14)
+            goal_yaw = np.pi
 
             # Generate trajectory with random time from (2, ep_time)
             self.goal_generator[i].plan_go_to_from(initial_state=initial_state, desired_state=np.append(final_goal, goal_yaw), 

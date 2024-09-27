@@ -20,7 +20,6 @@ from gym_art.quadrotor_multi.scenarios.swarm_vs_swarm import Scenario_swarm_vs_s
 # Obstacles
 from gym_art.quadrotor_multi.scenarios.obstacles.o_random import Scenario_o_random
 from gym_art.quadrotor_multi.scenarios.obstacles.o_static_same_goal import Scenario_o_static_same_goal
-from gym_art.quadrotor_multi.scenarios.obstacles.o_dynamic_same_goal import Scenario_o_dynamic_same_goal
 from gym_art.quadrotor_multi.scenarios.obstacles.o_swap_goals import Scenario_o_swap_goals
 from gym_art.quadrotor_multi.scenarios.obstacles.o_ep_rand_bezier import Scenario_o_ep_rand_bezier
 from gym_art.quadrotor_multi.scenarios.obstacles.o_random_dynamic_goal import Scenario_o_random_dynamic_goal

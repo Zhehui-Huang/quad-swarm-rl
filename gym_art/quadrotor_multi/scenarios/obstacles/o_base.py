@@ -81,9 +81,7 @@ class Scenario_o_base(QuadrotorScenario):
 
         return np.array(generated_points)
 
-    def generate_pos_v3(self, num_agents):
-        generated_points = []
-        pos_area_flag = np.random.choice([0, 1])
+    def generate_pos_v3(self, pos_area_flag):
         pos_shift = 1
 
         room_width, room_depth = self.room_dims[0], self.room_dims[1]
@@ -97,11 +95,11 @@ class Scenario_o_base(QuadrotorScenario):
             pos_y_range = [obst_area_depth / 2 + pos_shift, self.room_dims[1] / 2 - pos_shift]
             goal_y_range = [-self.room_dims[1] / 2 + pos_shift, -obst_area_depth / 2 - pos_shift]
 
-        for i in range(num_agents):
-            x = np.random.uniform(low=pos_x_range[0], high=pos_x_range[1])
-            y = np.random.uniform(low=pos_y_range[0], high=pos_y_range[1])
-            z = np.random.uniform(low=0.5, high=1.0)
-            generated_points.append(np.array([x, y, z]))
+        start_pos = [
+            np.random.uniform(low=pos_x_range[0], high=pos_x_range[1]),
+            np.random.uniform(low=pos_y_range[0], high=pos_y_range[1]),
+            np.random.uniform(low=0.5, high=1.0)
+        ]
 
         goal_pos = [
             np.random.uniform(low=pos_x_range[0], high=pos_x_range[1]),
@@ -109,7 +107,7 @@ class Scenario_o_base(QuadrotorScenario):
             0.65
         ]
 
-        return np.array(generated_points), np.array(goal_pos)
+        return np.array(start_pos), np.array(goal_pos)
 
     def check_surroundings(self, row, col):
         length, width = self.obstacle_map.shape[0], self.obstacle_map.shape[1]
