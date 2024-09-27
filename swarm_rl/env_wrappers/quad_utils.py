@@ -57,7 +57,7 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         obst_penalty_range=cfg.quads_obst_collision_smooth_penalty_range,
 
         # Aerodynamics
-        use_downwash=cfg.quads_use_downwash,
+        use_downwash=cfg.quads_use_downwash, z_overlap=cfg.quads_z_overlap,
         # Numba Speed Up
         use_numba=cfg.quads_use_numba,
         # Scenarios

@@ -56,7 +56,7 @@ def add_quadrotors_env_args(env, parser):
     # Obstacle
     # # Obstacle Features
     p.add_argument('--quads_use_obstacles', default=False, type=str2bool, help='Use obstacles or not')
-    p.add_argument('--quads_obstacle_obs_type', default='none', type=str,
+    p.add_argument('--quads_obstacle_obs_type', default='ToFs', type=str,
                    choices=['none', 'octomap', 'ToFs'], help='Choose what kind of obs to send to encoder.')
     p.add_argument('--quads_obstacle_tof_resolution', default=4, type=int,
                    choices=[4, 8], help='Choose the resolution of ToFs, 4x4 or 8x8.')
@@ -103,6 +103,9 @@ def add_quadrotors_env_args(env, parser):
     # Aerodynamics
     # # Downwash
     p.add_argument('--quads_use_downwash', default=False, type=str2bool, help='Apply downwash or not')
+
+    # # Not overlap in z
+    p.add_argument('--quads_z_overlap', default=False, type=str2bool, help='drones able to go under each other.')
 
     # Numba Speed Up
     p.add_argument('--quads_use_numba', default=False, type=str2bool, help='Whether to use numba for jit or not')

@@ -11,7 +11,7 @@ def perform_downwash(drones_dyn, dt):
     # Use cylinder to simulate the downwash area
     # The downwash area is a cylinder with radius of 2 arm ~ 10 cm and height of 1.0 m
     xy_downwash = 0.1
-    z_downwash = 0.7
+    z_downwash = 5.0
     # get pos
     dyns_pos = np.array([d.pos for d in drones_dyn])
     # get z_axis
@@ -19,7 +19,7 @@ def perform_downwash(drones_dyn, dt):
     # drone num
     dyns_num = len(drones_dyn)
     applied_downwash_list = np.zeros(dyns_num)
-    # check if neighbors drones are within teh downwash areas, if yes, apply downwash
+    # check if neighbors drones are within the downwash areas, if yes, apply downwash
     for i in range(dyns_num):
         z_axis = dyns_z_axis[i]
         neighbor_pos = dyns_pos - dyns_pos[i]

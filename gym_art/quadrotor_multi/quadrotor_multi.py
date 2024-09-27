@@ -198,6 +198,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Aerodynamics
         self.use_downwash = use_downwash
+        self.z_overlap = z_overlap
 
         # Rendering
         # # set to true whenever we need to reset the OpenGL scene in render()
@@ -579,6 +580,19 @@ class QuadrotorEnvMulti(gym.Env):
             )
         else:
             rew_proximity = np.zeros(self.num_agents)
+
+        # # Not in z overlap
+        rew_z_overlap_raw = np.zeros(self.num_agents)
+        pos_xy_list = np.array(self.pos)[:, :2]
+        for i in range(self.num_agents):
+            for j in range(self.num_agents):
+                if i == j:
+                    continue
+                if np.linalg.norm(pos_xy_list[i] - pos_xy_list[j]) < 4.0 * self.quad_arm:
+                    rew_z_overlap_raw[i] = -1.0
+                    rew_z_overlap_raw[j] = -1.0
+
+        rew_z_overlap = 5.0 * rew_z_overlap_raw
 
         # 2) With obstacles
         rew_collisions_obst_quad = np.zeros(self.num_agents)
