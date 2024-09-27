@@ -1,7 +1,10 @@
 import os
 
-from swarm_rl.sim2real.code_blocks import headers_network_evaluate, headers_evaluation, \
-multi_drone_attn_eval
+from swarm_rl.sim2real.code_blocks import headers_network_evaluate, headers_evaluation
+from swarm_rl.sim2real.code_blocks import headers_single_obst_1, headers_single_obst_2, \
+    headers_single_obst_3, headers_single_obst_4, multi_drone_attn_eval
+from swarm_rl.sim2real.code_blocks import headers_multi_obst_deepset_1, headers_multi_obst_deepset_2, \
+    headers_multi_obst_deepset_3
 from swarm_rl.sim2real.sim2real_utils import process_layer
 
 
@@ -31,6 +34,15 @@ def generate_c_model_deepset_obst(model, output_path, output_folder, testing=Fal
         for w_name, b_name in zip(weight_names, bias_names):
             w = model_state_dict[w_name].T
             structure += '{' + str(w.shape[0]) + ', ' + str(w.shape[1]) + '},'
+            
+        if 'self' in enc_name:
+            self_enc_size = int(structure.split(",")[4].split("{")[-1])
+        if 'obst' in enc_name:
+            obst_enc_size = int(structure.split(",")[-2][:-1])
+            obst_dim = int(structure.split(",")[0].split("{")[-1])
+        if 'nbr' in enc_name:
+            nbr_enc_size = int(structure.split(",")[-2][:-1])
+            nbr_dim = int(structure.split(",")[0].split("{")[-1])
 
         # complete the structure array
         # get rid of the comma after the last curly bracket
@@ -50,6 +62,9 @@ def generate_c_model_deepset_obst(model, output_path, output_folder, testing=Fal
 
     # headers
     source += headers_network_evaluate if not testing else headers_evaluation
+    source += headers_multi_obst_deepset_1 + str(nbr_dim)
+    source += headers_single_obst_1 + str(obst_dim) + headers_single_obst_2 + str(obst_enc_size) + headers_single_obst_3 + str(self_enc_size) + headers_single_obst_4
+    source += headers_multi_obst_deepset_2 + str(nbr_enc_size) + headers_multi_obst_deepset_3
 
     # helper funcs
     # source += linear_activation
@@ -113,10 +128,11 @@ def generate_c_weights_deepset_obst(model, transpose=False):
                 self_weights.append(weight)
                 outputs.append('static float output_' + str(n_self) + '[' + str(param.shape[1]) + '];\n')
                 n_self += 1
-            elif 'neighbor' in c_name:
+            elif 'neighbor_encoder' in c_name:
                 nbr_layer_names.append(name)
                 neighbor_weights.append(weight)
-                outputs.append('static float nbr_output_' + str(n_nbr) + '[' + str(param.shape[1]) + '];\n')
+                outputs.append(
+                    'static float nbr_output_' + str(n_nbr) + '[NEIGHBORS]' + '[' + str(param.shape[1]) + '];\n')
                 n_nbr += 1
             elif 'obstacle' in c_name:
                 obst_layer_names.append(name)
@@ -192,25 +208,14 @@ def self_encoder_c_str(prefix, weight_names, bias_names):
     }}
 '''
     for_loops.append(for_loop)
-
-    # Concat self embedding and neighbor embedding
-    for_loop = f'''
-    // Concat self_embed and neighbor_embed
-    for (int i = 0; i < D_SELF; i++) {{
-        output_embeds[i] = output_{num_layers - 3}[i];
-    }}
-    for (int i = 0; i < D_NBR; i++) {{
-        output_embeds[D_SELF + i] = neighbor_embeds[i];
-    }}
-'''
-    for_loops.append(for_loop)
     
     # Concat self embedding, neighbor embedding and obstacle embedding
     for_loop = f'''
     // Concat self_embed, neighbor_embed and obst_embed
     for (int i = 0; i < self_structure[1][1]; i++) {{
-        output_embeds[D_SELF + i] = output_1[i];
-        output_embeds[D_SELF + i + self_structure[1][1]] = obstacle_embeds[i];
+        output_embeds[i] = output_1[i]; // Self
+        output_embeds[i + self_structure[1][1]] = obstacle_embeds[i]; // Obstacles
+        output_embeds[i + self_structure[1][1] + nbr_structure[1][1]] = neighbor_embeds[i]; // Neighbors
     }}
     '''
     for_loops.append(for_loop)
@@ -262,7 +267,7 @@ def neighbor_encoder_deepset_c_string(prefix, weight_names, bias_names, testing)
     if testing:
         method = """void neighborEmbedder(const float neighbor_inputs[NEIGHBORS*NBR_OBS_DIM]) {"""
     else:
-        method = """void neighborEmbedder(float neighbor_inputs[NEIGHBORS*NBR_OBS_DIM]) {"""
+        method = """void neighborEmbedder(volatile float neighbor_inputs[NEIGHBORS*NBR_OBS_DIM]) {"""
     num_layers = len(weight_names)
 
     # write the for loops for forward-prop
@@ -300,7 +305,7 @@ def neighbor_encoder_deepset_c_string(prefix, weight_names, bias_names, testing)
     # Average the neighbor embeddings
     for_loop = f'''
     // Average over number of neighbors
-    for (int i = 0; i < D_NBR; i++) {{
+    for (int i = 0; i < NBR_OBS_DIM; i++) {{
         neighbor_embeds[i] = 0;
         for (int n = 0; n < NEIGHBORS; n++) {{
             neighbor_embeds[i] += {prefix}_output_{str(num_layers - 1)}[n][i];
@@ -319,29 +324,15 @@ def neighbor_encoder_deepset_c_string(prefix, weight_names, bias_names, testing)
 
 def obstacle_encoder_c_str(prefix, weight_names, bias_names):
     method = f"""void obstacleEmbedder(volatile float obstacle_inputs[OBST_DIM]) {{
-        //reset embeddings accumulator to zero
-        memset(obstacle_embeds, 0, sizeof(obstacle_embeds));
+            //reset embeddings accumulator to zero
+            memset(obstacle_embeds, 0, sizeof(obstacle_embeds));
 
-    """
+        """
     num_layers = len(weight_names)
-    if num_layers == 1:
-        # write the for loops for forward-prop
-        for_loops = []
-        input_for_loop = f'''
-                for (int i = 0; i < {prefix}_structure[0][1]; i++) {{
-                    obstacle_embeds[i] = 0;
-                    for (int j = 0; j < {prefix}_structure[0][0]; j++) {{
-                        obstacle_embeds[i] += obstacle_inputs[j] * {weight_names[0].replace('.', '_')}[j][i];
-                    }}
-                    obstacle_embeds[i] += {bias_names[0].replace('.', '_')}[i];
-                }}
-            '''
-        for_loops.append(input_for_loop)
-    else:
 
-        # write the for loops for forward-prop
-        for_loops = []
-        input_for_loop = f'''
+    # write the for loops for forward-prop
+    for_loops = []
+    input_for_loop = f'''
             for (int i = 0; i < {prefix}_structure[0][1]; i++) {{
                 {prefix}_output_0[i] = 0;
                 for (int j = 0; j < {prefix}_structure[0][0]; j++) {{
@@ -351,36 +342,21 @@ def obstacle_encoder_c_str(prefix, weight_names, bias_names):
                 {prefix}_output_0[i] = tanhf({prefix}_output_0[i]);
             }}
         '''
-        for_loops.append(input_for_loop)
+    for_loops.append(input_for_loop)
 
-        # rest of the hidden layers
-        for n in range(1, num_layers - 1):
-            for_loop = f'''
-                for (int i = 0; i < {prefix}_structure[{str(n)}][1]; i++) {{
-                    output_{str(n)}[i] = 0;
-                    for (int j = 0; j < {prefix}_structure[{str(n)}][0]; j++) {{
-                        output_{str(n)}[i] += output_{str(n - 1)}[j] * {weight_names[n].replace('.', '_')}[j][i];
-                    }}
-                    output_{str(n)}[i] += {bias_names[n].replace('.', '_')}[i];
-                    output_{str(n)}[i] = tanhf(output_{str(n)}[i]);
+    # rest of the hidden layers
+    for n in range(1, num_layers):
+        for_loop = f'''
+            for (int i = 0; i < {prefix}_structure[{str(n)}][1]; i++) {{
+                {prefix}_output_{str(n)}[i] = 0;
+                for (int j = 0; j < {prefix}_structure[{str(n)}][0]; j++) {{
+                    {prefix}_output_{str(n)}[i] += {prefix}_output_{str(n - 1)}[j] * {weight_names[n].replace('.', '_')}[j][i];
                 }}
+                {prefix}_output_{str(n)}[i] += {bias_names[n].replace('.', '_')}[i];
+                obstacle_embeds[i] = tanhf({prefix}_output_{str(n)}[i]);
+            }}
             '''
-            for_loops.append(for_loop)
-
-        # the last hidden layer which is supposed to have no non-linearity
-        n = num_layers - 1
-        if n > 0:
-            output_for_loop = f'''
-                for (int i = 0; i < {prefix}_structure[{str(n)}][1]; i++) {{
-                    output_{str(n)}[i] = 0;
-                    for (int j = 0; j < {prefix}_structure[{str(n)}][0]; j++) {{
-                        output_{str(n)}[i] += output_{str(n - 1)}[j] * {weight_names[n].replace('.', '_')}[j][i];
-                    }}
-                    output_{str(n)}[i] += {bias_names[n].replace('.', '_')}[i];
-                    obstacle_embeds[i] += output_{str(n)}[i];
-                }}
-            '''
-            for_loops.append(output_for_loop)
+        for_loops.append(for_loop)
 
     for code in for_loops:
         method += code

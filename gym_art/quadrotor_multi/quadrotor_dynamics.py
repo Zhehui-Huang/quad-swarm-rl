@@ -275,8 +275,8 @@ class QuadrotorDynamics:
             print("WARNING: Motor assymetry was not setup. Setting assymetry to:", self.motor_assymetry)
         self.motor_assymetry = self.motor_assymetry * 4. / np.sum(self.motor_assymetry)  # re-normalizing to sum-up to 4
         # self.thrust_max = (GRAV * self.mass * self.thrust_to_weight * self.motor_assymetry / 4.0)
-        # self.thrust_max = (GRAV * self.mass * self.thrust_to_weight * self.motor_assymetry / 4.0)
-        self.thrust_max = ((GRAV * self.mass * self.thrust_to_weight * self.motor_assymetry / 4.0) * 1.25) * 1.25
+        self.thrust_max = (GRAV * self.mass * self.thrust_to_weight * self.motor_assymetry / 4.0)
+        # self.thrust_max = ((GRAV * self.mass * self.thrust_to_weight * self.motor_assymetry / 4.0) * 1.25) * 1.25
         self.torque_max = self.torque_to_thrust * self.thrust_max  # propeller torque scales
 
         # Propeller positions in X configurations

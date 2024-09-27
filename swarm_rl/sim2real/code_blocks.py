@@ -27,10 +27,14 @@ static float obstacle_embeds["""
 headers_single_obst_3 = """];
 static float output_embeds["""
 
-headers_single_obst_4 = """];
+headers_single_obst_4 = """];"""
 
-float base;
-float exponent;
+headers_multi_obst_deepset_1 = """
+#define NBR_OBS_DIM """
+
+headers_multi_obst_deepset_2 = """
+static float neighbor_embeds["""
+headers_multi_obst_deepset_3 = """];
 """
 
 headers_multi_agent_attention = """
