@@ -721,7 +721,7 @@ class QuadrotorEnvMulti(gym.Env):
                     self.low_h_count += 1
 
         # 7. DONES
-        if all(dones):
+        if any(dones):
             scenario_name = self.scenario.name()[9:]
             for i in range(len(infos)):
                 if self.saved_in_replay_buffer:
