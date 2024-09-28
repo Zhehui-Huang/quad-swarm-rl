@@ -18,7 +18,7 @@ DEFAULT_QUAD_REWARD_SHAPING['quad_rewards'].update(dict(
 DEFAULT_QUAD_REWARD_SHAPING['quad_rewards'].update(dict(
     # We treat drone orientation equally as position. 
     # If orientation is correct, then the correct velocity and omega allow us to better track a trajectory. 
-    vel=0.1, omega=0.1, orient=1.0
+    vel=0.0, omega=0.0, orient=0.5
 ))
 
 class QuadsRewardShapingWrapper(gym.Wrapper, TrainingInfoInterface, RewardShapingInterface):

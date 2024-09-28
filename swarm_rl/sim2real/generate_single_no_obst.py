@@ -1,4 +1,5 @@
 import os
+from swarm_rl.sim2real.sim2real_utils import process_layer
 
 from swarm_rl.sim2real.code_blocks import (
     headers_network_evaluate,
@@ -9,6 +10,21 @@ from swarm_rl.sim2real.code_blocks import (
 
 def generate_c_model(model, output_path, output_folder, testing=False):
     layer_names, bias_names, weights, biases, outputs = generate_c_weights(model, transpose=True)
+    
+    model_state_dict = model.state_dict()
+    if 'obs_normalizer.running_mean_std.running_mean_std.obs.running_mean' in model_state_dict.keys():
+        mean = model_state_dict['obs_normalizer.running_mean_std.running_mean_std.obs.running_mean']
+        var = model_state_dict['obs_normalizer.running_mean_std.running_mean_std.obs.running_var']
+        m_str = process_layer('mean', mean, layer_type='bias')
+        v_str = process_layer('var', var, layer_type='bias')
+    else:
+        m_str = ""
+        v_str = ""
+
+    source = ""
+    structures = ""
+    methods = ""
+    
     num_layers = len(layer_names)
 
     structure = 'static const int structure [' + str(int(num_layers)) + '][2] = {'
@@ -97,6 +113,8 @@ def generate_c_model(model, output_path, output_folder, testing=False):
         source += weight
     for bias in biases:
         source += bias
+    source += m_str
+    source += v_str
     source += controller_eval
 
     if testing:

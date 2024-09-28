@@ -41,14 +41,13 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
     cost_pos_raw = dist
     cost_pos = rew_coeff["pos"] * cost_pos_raw
 
-    # Penalize amount of control effort
     cost_effort_raw = np.linalg.norm(action)
     cost_effort = rew_coeff["effort"] * cost_effort_raw
 
     # Loss orientation
     if obs_rel_rot or dynamic_goal:
         if on_floor:
-            cost_orient_raw = 3.0
+            cost_orient_raw = 5.0
         else:
             if dynamic_goal:
                 tmp_rot = scipy_rotation.from_matrix(dynamics.rot)
@@ -69,10 +68,11 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
                 rel_yaw, rel_pitch, rel_roll = abs(rot_yaw - base_yaw), abs(rot_pitch - base_pitch), abs(rot_roll - base_roll)
                 rel_yaw, rel_pitch, rel_roll = rel_yaw / np.pi, rel_pitch / np.pi, rel_roll / np.pi
 
-                cost_orient_raw = rel_yaw + rel_pitch + rel_roll
+                # cost_orient_raw = rel_yaw + rel_pitch + rel_roll
+                cost_orient_raw = rel_yaw
     else:
         if on_floor:
-            cost_orient_raw = 1.0
+            cost_orient_raw = 5.0
         else:
             cost_orient_raw = -dynamics.rot[2, 2]
     cost_orient = rew_coeff["orient"] * cost_orient_raw
@@ -160,7 +160,7 @@ class QuadrotorSingle:
                  init_random_state=False, sense_noise=None, verbose=False, gravity=GRAV,
                  t2w_std=0.005, t2t_std=0.0005, excite=False, dynamics_simplification=False, use_numba=False,
                  neighbor_obs_type='none', num_agents=1, num_use_neighbor_obs=0, use_obstacles=False,
-                 obst_obs_type='none', obs_rel_rot=False, obst_tof_resolution=4, dynamic_goal=False):
+                 obst_obs_type='none', obs_rel_rot=False, obst_tof_resolution=4, dynamic_goal=False, use_ctbr=False):
         np.seterr(under='ignore')
         """
         Args:
@@ -198,6 +198,7 @@ class QuadrotorSingle:
         self.use_numba = use_numba
         self.obs_rel_rot = obs_rel_rot
         self.dynamic_goal = dynamic_goal
+        self.use_ctbr = use_ctbr
         self.base_rot = np.eye(3)
 
         # Room
@@ -292,8 +293,9 @@ class QuadrotorSingle:
 
         # Make observation space
         self.observation_space = self.make_observation_space()
-
+        
         self._seed()
+
 
     def update_sense_noise(self, sense_noise):
         if isinstance(sense_noise, dict):
@@ -316,7 +318,7 @@ class QuadrotorSingle:
                                           dynamics_steps_num=self.sim_steps, room_box=self.room_box,
                                           dim_mode=self.dim_mode, gravity=self.gravity,
                                           dynamics_simplification=self.dynamics_simplification,
-                                          use_numba=self.use_numba, dt=self.dt)
+                                          use_numba=self.use_numba, dt=self.dt, use_ctbr=self.use_ctbr)
 
         # CONTROL
         if self.raw_control:
@@ -329,13 +331,15 @@ class QuadrotorSingle:
             else:
                 raise ValueError('QuadEnv: Unknown dimensionality mode %s' % self.dim_mode)
         else:
-            self.controller = NonlinearPositionController(self.dynamics, tf_control=self.tf_control)
+            self.controller = CollectiveThrustBodyRate(dynamics=self.dynamics, dynamics_params=dynamics_params)
+            # self.controller = NonlinearPositionController(self.dynamics, tf_control=self.tf_control)
 
         # ACTIONS
         self.action_space = self.controller.action_space(self.dynamics)
 
         # STATE VECTOR FUNCTION
         self.state_vector = getattr(get_state, "state_" + self.obs_repr)
+    
 
     def make_observation_space(self):
         room_range = self.room_box[1] - self.room_box[0]
@@ -425,6 +429,7 @@ class QuadrotorSingle:
 
         self.tick += 1
         done = self.tick > self.ep_len
+    
         sv = self.state_vector(self)
         self.traj_count += int(done)
 

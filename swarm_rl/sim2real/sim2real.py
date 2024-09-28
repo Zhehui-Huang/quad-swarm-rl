@@ -10,6 +10,7 @@ from swarm_rl.sim2real.sim2real_utils import load_sf_model
 from swarm_rl.sim2real.generate_single_no_obst import generate_c_model
 from swarm_rl.sim2real.generate_multi_no_obst import generate_c_model_multi_deepset
 from swarm_rl.sim2real.generate_multi_drone_with_obst import generate_c_model_attention
+from swarm_rl.sim2real.generate_multi_drone_deepset_with_obst import generate_c_model_deepset_obst
 
 
 def torch_to_c_model(args=None):
@@ -41,6 +42,8 @@ def torch_to_c_model(args=None):
                 generate_c_model_single_obst(model, str(output_path), str(output_folder), testing=args.testing)
             elif args.model_type == 'multi_obst_attn':
                 generate_c_model_attention(model, str(output_path), str(output_folder), testing=args.testing)
+            elif args.model_type == 'multi_obst_deepset':
+                generate_c_model_deepset_obst(model, str(output_path), str(output_folder), testing=args.testing)            
             else:
                 raise NotImplementedError(f'Model type {args.model_type} is not supported')
 
@@ -65,11 +68,12 @@ def parse_args():
                              'to False if you want to output a c model that will be actually used for sim2real')
     parser.add_argument('--model_type', type=str,
                         default='single',
-                        choices=['single', 'single_obst', 'multi_deepset', 'multi_obst_attn'],
+                        choices=['single', 'single_obst', 'multi_deepset', 'multi_obst_attn', 'multi_obst_deepset'],
                         help='What kind of model we are working with. '
                              'single: single drone, without neighbor encoder, without obstacle encoder.'
                              'single_obst: single drone, without neighbor encoder, with obstacle encoder.'
                              'multi_deepset: multiple drones, neighbor encoder: deepset, obstacle encoder: N/A.'
+                             'multi_obst_deepset: multiple drones, neighbor encoder: deepset, with obstacle encoder.'
                              'multi_obst_attention: multiple drones, neighbor encoder: attention, obstacle encoder: N/A'
                         )
 

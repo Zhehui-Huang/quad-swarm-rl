@@ -1,12 +1,12 @@
 from sample_factory.launcher.run_description import RunDescription, Experiment, ParamGrid
-from swarm_rl.runs.single_quad.baseline import QUAD_BASELINE_CLI
+from swarm_rl.runs.single_quad.baseline import QUAD_BASELINE_CLI_1
 
 _params = ParamGrid([
     ('seed', [0000, 1111, 2222, 3333]),
     ("quads_obs_rel_rot", [True]),
 ])
 
-SINGLE_CLI = QUAD_BASELINE_CLI + (
+SINGLE_CLI = QUAD_BASELINE_CLI_1 + (
     ' --with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_group=single_update_model_2 --wandb_user=multi-drones'
 )
 
