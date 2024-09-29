@@ -31,7 +31,7 @@ class QuadrotorEnvMulti(gym.Env):
                  obst_penalty_range,
 
                  # Aerodynamics, Numba Speed Up, Scenarios, Room, Replay Buffer, Rendering
-                 use_downwash, use_numba, quads_mode, sim2real_scenario, room_dims, use_replay_buffer, quads_view_mode,
+                 use_downwash, z_overlap, use_numba, quads_mode, sim2real_scenario, room_dims, use_replay_buffer, quads_view_mode,
                  quads_render,
 
                  # Quadrotor Specific (Do Not Change)
@@ -74,6 +74,7 @@ class QuadrotorEnvMulti(gym.Env):
                 neighbor_obs_type=neighbor_obs_type, num_use_neighbor_obs=self.num_use_neighbor_obs,
                 # Obstacle
                 use_obstacles=use_obstacles, obst_obs_type=obst_obs_type, obst_tof_resolution=obst_tof_resolution,
+                obst_spawn_area=obst_spawn_area,
                 #Controller
                 use_ctbr=use_ctbr
             )
@@ -198,6 +199,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Aerodynamics
         self.use_downwash = use_downwash
+        self.z_overlap = z_overlap
 
         # Rendering
         # # set to true whenever we need to reset the OpenGL scene in render()
@@ -579,6 +581,19 @@ class QuadrotorEnvMulti(gym.Env):
             )
         else:
             rew_proximity = np.zeros(self.num_agents)
+
+        # # Not in z overlap
+        rew_z_overlap_raw = np.zeros(self.num_agents)
+        pos_xy_list = np.array(self.pos)[:, :2]
+        for i in range(self.num_agents):
+            for j in range(self.num_agents):
+                if i == j:
+                    continue
+                if np.linalg.norm(pos_xy_list[i] - pos_xy_list[j]) < 4.0 * self.quad_arm:
+                    rew_z_overlap_raw[i] = -1.0
+                    rew_z_overlap_raw[j] = -1.0
+
+        rew_z_overlap = 5.0 * rew_z_overlap_raw
 
         # 2) With obstacles
         rew_collisions_obst_quad = np.zeros(self.num_agents)

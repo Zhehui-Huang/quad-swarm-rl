@@ -56,7 +56,7 @@ def add_quadrotors_env_args(env, parser):
     # Obstacle
     # # Obstacle Features
     p.add_argument('--quads_use_obstacles', default=False, type=str2bool, help='Use obstacles or not')
-    p.add_argument('--quads_obstacle_obs_type', default='none', type=str,
+    p.add_argument('--quads_obstacle_obs_type', default='ToFs', type=str,
                    choices=['none', 'octomap', 'ToFs'], help='Choose what kind of obs to send to encoder.')
     p.add_argument('--quads_obstacle_tof_resolution', default=4, type=int,
                    choices=[4, 8], help='Choose the resolution of ToFs, 4x4 or 8x8.')
@@ -65,7 +65,7 @@ def add_quadrotors_env_args(env, parser):
     p.add_argument('--quads_obst_density', default=0.2, type=float, help='Obstacle density in the map')
     p.add_argument('--quads_obst_size', default=1.0, type=float, help='The diameter / length of obstacles')
     p.add_argument('--quads_obst_grid_size', default=1.0, type=float, help='The grid size that obstacles are placed on')
-    p.add_argument('--quads_obst_spawn_area', nargs='+', default=[8.0, 8.0], type=float,
+    p.add_argument('--quads_obst_spawn_area', nargs='+', default=[15.0, 8.0], type=float,
                    help='The spawning area of obstacles')
     p.add_argument('--quads_obst_spawn_center', default=True, type=str2bool,
                    help='Spawn obstacles at the center of grids or not')
@@ -104,6 +104,9 @@ def add_quadrotors_env_args(env, parser):
     # # Downwash
     p.add_argument('--quads_use_downwash', default=False, type=str2bool, help='Apply downwash or not')
 
+    # # Not overlap in z
+    p.add_argument('--quads_z_overlap', default=False, type=str2bool, help='drones able to go under each other.')
+
     # Numba Speed Up
     p.add_argument('--quads_use_numba', default=False, type=str2bool, help='Whether to use numba for jit or not')
 
@@ -118,7 +121,7 @@ def add_quadrotors_env_args(env, parser):
                    help='Choose which scenario to run. ep = evader pursuit')
 
     # Room
-    p.add_argument('--quads_room_dims', nargs='+', default=[10., 10., 5.], type=float,
+    p.add_argument('--quads_room_dims', nargs='+', default=[15., 15., 5.], type=float,
                    help='Length, width, and height dimensions respectively of the quadrotor env')
 
     # Replay Buffer
