@@ -8,7 +8,7 @@ _params = ParamGrid(
 )
 
 OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
-    ' --num_envs_per_worker=4 --rnn_size=16 --quads_obs_repr=xyz_vxyz_R_omega --quads_dynamic_goal=True'
+    ' --num_envs_per_worker=4 --rnn_size=16 --quads_obs_repr=xyz_vxyz_R_omega --quads_dynamic_goal=True --normalize_input=True'
     '--quads_obst_grid_size=0.5 --quads_obst_spawn_center=False --quads_obst_grid_size_range 0.5 0.8 --quads_obst_grid_size_random=True'
     '--quads_neighbor_visible_num=2 --quads_neighbor_obs_type=pos_vel --quads_neighbor_hidden_size=16 '
     '--quads_obstacle_tof_resolution=8'
