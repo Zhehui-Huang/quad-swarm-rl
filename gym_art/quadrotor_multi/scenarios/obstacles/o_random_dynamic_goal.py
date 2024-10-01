@@ -71,13 +71,13 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
 
             if (traj_speed < 0.15):
                 traj_speed = 0.15
-            if (traj_speed > 0.8):
-                traj_speed = 0.8
+            if (traj_speed > 0.6):
+                traj_speed = 0.6
 
             traj_duration = dist / traj_speed
    
             # goal_yaw = np.random.uniform(low=-3.14, high=3.14)
-            goal_yaw = np.pi
+            goal_yaw = 0
 
             # Generate trajectory with random time from (2, ep_time)
             self.goal_generator[i].plan_go_to_from(initial_state=initial_state, desired_state=np.append(final_goal, goal_yaw), 
