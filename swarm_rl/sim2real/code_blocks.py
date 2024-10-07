@@ -177,6 +177,27 @@ float clip(float v, float min, float max) {
 
 """
 
+normalization_functions = """   
+void normalize_state(float *state_array) {
+    for (int i = 0; i < STATE_DIM; i++) {
+        state_array[i] = (state_array[i] - mean[i]) / ((input_std[i]) + EPS);
+    }
+}
+
+void normalize_neighbor(volatile float *neighbor_inputs) {
+    for (int i = 0; i < OBST_DIM; i++) {
+        neighbor_inputs[i] = (neighbor_inputs[i] - mean[i+STATE_DIM]) / ((input_std[i+STATE_DIM]) + EPS);
+    }
+}
+
+void normalize_obstacle(volatile float *obstacle_inputs) {
+    for (int i = 0; i < OBST_DIM; i++) {
+        obstacle_inputs[i] = (obstacle_inputs[i] - mean[i+STATE_DIM+(NEIGHBORS*NBR_OBS_DIM)]) / ((input_std[i+STATE_DIM+(NEIGHBORS*NBR_OBS_DIM)]) + EPS);
+    }
+}
+
+"""
+
 attention_body = """
 void singleHeadAttention() {
         uint8_t i, j, k;

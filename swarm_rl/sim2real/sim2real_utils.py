@@ -1,5 +1,6 @@
 import json
 import os
+import math
 from pathlib import Path
 
 import torch
@@ -100,9 +101,14 @@ def process_layer(name, param, layer_type):
         weight += '};\n'
         return weight
     else:
-        bias = 'static const float ' + name + '[' + str(param.shape[0]) + '] = {'
-        for num in param:
-            bias += str(num.item()) + ','
+        if name == 'var':
+            bias = 'static const float input_std' + '[' + str(param.shape[0]) + '] = {'
+            for num in param:
+                bias += str(math.sqrt(num.item())) + ','
+        else:
+            bias = 'static const float ' + name + '[' + str(param.shape[0]) + '] = {'
+            for num in param:
+                bias += str(num.item()) + ','
         # get rid of comma after last number
         bias = bias[:-1]
         bias += '};\n'

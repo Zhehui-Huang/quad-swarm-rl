@@ -2,7 +2,7 @@ import os
 
 from swarm_rl.sim2real.code_blocks import headers_network_evaluate, headers_evaluation
 from swarm_rl.sim2real.code_blocks import headers_single_obst_1, headers_single_obst_2, \
-    headers_single_obst_3, headers_single_obst_4, multi_drone_attn_eval
+    headers_single_obst_3, headers_single_obst_4, multi_drone_attn_eval, normalization_functions
 from swarm_rl.sim2real.code_blocks import headers_multi_obst_deepset_1, headers_multi_obst_deepset_2, \
     headers_multi_obst_deepset_3
 from swarm_rl.sim2real.sim2real_utils import process_layer
@@ -17,9 +17,11 @@ def generate_c_model_deepset_obst(model, output_path, output_folder, testing=Fal
         var = model_state_dict['obs_normalizer.running_mean_std.running_mean_std.obs.running_var']
         m_str = process_layer('mean', mean, layer_type='bias')
         v_str = process_layer('var', var, layer_type='bias')
+        norm_method = normalization_functions
     else:
         m_str = ""
         v_str = ""
+        norm_method = ""
 
     source = ""
     structures = ""
@@ -88,6 +90,8 @@ def generate_c_model_deepset_obst(model, output_path, output_folder, testing=Fal
 
     source += m_str
     source += v_str
+    
+    source += norm_method
 
     source += methods
 

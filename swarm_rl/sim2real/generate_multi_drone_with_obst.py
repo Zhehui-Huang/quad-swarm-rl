@@ -1,7 +1,7 @@
 import os
 
 from swarm_rl.sim2real.code_blocks import attention_body, headers_network_evaluate, headers_evaluation, \
-    headers_multi_agent_attention, multi_drone_attn_eval
+    headers_multi_agent_attention, multi_drone_attn_eval, normalization_functions
 from swarm_rl.sim2real.sim2real_utils import process_layer
 
 
@@ -14,9 +14,11 @@ def generate_c_model_attention(model, output_path, output_folder, testing=False)
         var = model_state_dict['obs_normalizer.running_mean_std.running_mean_std.obs.running_var']
         m_str = process_layer('mean', mean, layer_type='bias')
         v_str = process_layer('var', var, layer_type='bias')
+        norm_method = normalization_functions
     else:
         m_str = ""
         v_str = ""
+        norm_method = ""
 
     source = ""
     structures = ""
@@ -76,6 +78,8 @@ def generate_c_model_attention(model, output_path, output_folder, testing=False)
 
     source += m_str
     source += v_str
+    
+    source += norm_method
 
     source += methods
 
@@ -175,7 +179,8 @@ def generate_c_weights_attention(model, transpose=False):
 
 
 def self_encoder_attn_c_str(prefix, weight_names, bias_names):
-    method = """void networkEvaluate(struct control_t_n *control_n, const float *state_array) {"""
+    method = """void networkEvaluate(struct control_t_n *control_n, const float *state_array) {
+        normalize_state(state_array);"""
     num_layers = len(weight_names)
     # write the for loops for forward-prop of self embed layer
     for_loops = []
@@ -249,6 +254,7 @@ def self_encoder_attn_c_str(prefix, weight_names, bias_names):
 
 def neighbor_encoder_c_string(prefix, weight_names, bias_names):
     method = """void neighborEmbedder(volatile float neighbor_inputs[NEIGHBORS * NBR_OBS_DIM]) {
+        normalize_neighbor(neighbor_inputs);
     """
     num_layers = len(weight_names)
     for_loops = []
@@ -317,7 +323,7 @@ def obstacle_encoder_c_str(prefix, weight_names, bias_names):
     method = f"""void obstacleEmbedder(volatile float obstacle_inputs[OBST_DIM]) {{
         //reset embeddings accumulator to zero
         memset(obstacle_embeds, 0, sizeof(obstacle_embeds));
-
+        normalize_obstacle(obstacle_inputs);
     """
     num_layers = len(weight_names)
     if num_layers == 1:

@@ -58,6 +58,8 @@ class QuadrotorEnvMulti(gym.Env):
         self.is_multiagent = True
         self.room_dims = room_dims
         self.quads_view_mode = quads_view_mode
+        
+        raw_control = False
 
         # Generate All Quadrotors
         self.envs = []
