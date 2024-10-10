@@ -15,7 +15,7 @@ def quadrotors_override_defaults(env, parser):
 def add_quadrotors_env_args(env, parser):
     p = parser
 
-    # Quadrotor features
+    # Quadrotor features 
     p.add_argument('--quads_num_agents', default=8, type=int, help='Override default value for the number of quadrotors')
     p.add_argument('--quads_obs_repr', default='xyz_vxyz_R_omega', type=str,
                    choices=['xyz_vxyz_R_omega', 'xyz_vxyz_R_omega_floor', 'xyz_vxyz_R_omega_wall'],
@@ -94,10 +94,12 @@ def add_quadrotors_env_args(env, parser):
     p.add_argument('--quads_obst_collision_reward', default=0.0, type=float,
                    help='Override default value for quadcol_bin_obst reward, which means collisions between quadrotor '
                         'and obstacles')
-    p.add_argument('--quads_obst_collision_smooth_max_penalty', default=0.0, type=float,
-                   help='The upper bound of the collision function given distance among drones')
-    p.add_argument('--quads_obst_collision_smooth_penalty_range', default=0.0, type=float,
-                   help='The upper bound of the distance between obstacles and drones for smooth penalty to be applied')
+    p.add_argument('--quads_obst_collision_prox_weight', default=0.0, type=float,
+                   help='The weight of the obstacle collision function given distance from drones')
+    p.add_argument('--quads_obst_collision_prox_max', default=0.0, type=float,
+                   help='The upper bound of the collision function given distance among drones. This is in meters.')
+    p.add_argument('--quads_obst_collision_prox_min', default=0.0, type=float,
+                   help='The lower bound of the distance between obstacles and drones for proximity penalty to be applied. This is in meters.')
 
 
     # Aerodynamics

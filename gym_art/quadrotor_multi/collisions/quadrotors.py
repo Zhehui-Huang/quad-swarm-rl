@@ -104,23 +104,25 @@ def calculate_drone_proximity_penalties(distance_matrix, collision_falloff_thres
     return dt * penalties
 
 
-def calculate_drone_obst_proximity_penalties(r_drone, r_obst, penalty_coeff, penalty_range,
-                                             quads_pos, quads_vel, obst_pos, dt):
+def calculate_drone_obst_proximity_penalties(r_drone, r_obst, penalty_coeff, penalty_max, penalty_min,
+                                            quads_pos, obst_pos):
     penalties = np.zeros(len(quads_pos))
-    
-    safe_dist = 0.35 + r_obst + r_drone
-    
+
     for qid in range(len(quads_pos)):
         min_dist = np.inf
         for oid in range(len(obst_pos)):
             rel_pos = obst_pos[oid][0:2] - quads_pos[qid][0:2]
             _currdist = np.linalg.norm(rel_pos)
-
+            
+            # Find the closest distance from drone to obstacle
             min_dist = min(min_dist, _currdist)
             
+        if (min_dist < penalty_min):
+            min_dist = penalty_min
+            
         # We should only assign a penalty if the obstacle is within the FOV.
-        if (min_dist < safe_dist):
-            obst_penalty_raw = (1 / (min_dist))
+        if (min_dist < penalty_max):
+            obst_penalty_raw = (1 / (min_dist + r_obst + r_drone))
             penalties[qid] = penalty_coeff * obst_penalty_raw
             
     return penalties

@@ -86,8 +86,10 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
     reward_shaping['quad_rewards']['quadcol_bin'] = cfg.quads_collision_reward
     reward_shaping['quad_rewards']['quadcol_bin_smooth_max'] = cfg.quads_collision_smooth_max_penalty
     reward_shaping['quad_rewards']['quadcol_bin_obst'] = cfg.quads_obst_collision_reward
-    reward_shaping['quad_rewards']['quadcol_bin_obst_smooth_max'] = cfg.quads_obst_collision_smooth_max_penalty
-
+    reward_shaping['quad_rewards']['quads_obst_collision_prox_weight'] = cfg.quads_obst_collision_prox_weight
+    reward_shaping['quad_rewards']['quads_obst_collision_prox_max'] = cfg.quads_obst_collision_prox_max
+    reward_shaping['quad_rewards']['quads_obst_collision_prox_min'] = cfg.quads_obst_collision_prox_min
+    
     # this is annealed by the reward shaping wrapper
     if cfg.anneal_collision_steps > 0:
         reward_shaping['quad_rewards']['quadcol_bin'] = 0.0
