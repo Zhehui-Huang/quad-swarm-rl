@@ -231,35 +231,35 @@ class CollectiveThrustBodyRate(object):
         self.control_omega[1] = 2.0 / self.tau_rp * attError[1]
         self.control_omega[2] = 2.0 / self.tau_rp * attError[2] + goal[11]
         
-        if (((self.control_omega[0] * dynamics.omega[0]) < 0) and (abs(dynamics.omega[0]) > self.heuristic_rp)):
-            if (dynamics.omega[0] < 0):
-                sign = -1.0
-            else:
-                sign = 1.0
-            self.control_omega[0] = self.omega_rp_max * sign
+        # if (((self.control_omega[0] * dynamics.omega[0]) < 0) and (abs(dynamics.omega[0]) > self.heuristic_rp)):
+        #     if (dynamics.omega[0] < 0):
+        #         sign = -1.0
+        #     else:
+        #         sign = 1.0
+        #     self.control_omega[0] = self.omega_rp_max * sign
             
-        if (((self.control_omega[1] * dynamics.omega[1]) < 0) and (abs(dynamics.omega[1]) > self.heuristic_rp)):
-            if (dynamics.omega[0] < 0):
-                sign = -1.0
-            else:
-                sign = 1.0
-            self.control_omega[1] = self.omega_rp_max * sign
+        # if (((self.control_omega[1] * dynamics.omega[1]) < 0) and (abs(dynamics.omega[1]) > self.heuristic_rp)):
+        #     if (dynamics.omega[0] < 0):
+        #         sign = -1.0
+        #     else:
+        #         sign = 1.0
+        #     self.control_omega[1] = self.omega_rp_max * sign
             
-        if (((self.control_omega[2] * dynamics.omega[2]) < 0) and (abs(dynamics.omega[2]) > self.heuristic_yaw)):
-            if (dynamics.omega[0] < 0):
-                sign = -1.0
-            else:
-                sign = 1.0
-            self.control_omega[2] = self.omega_rp_max * sign
+        # if (((self.control_omega[2] * dynamics.omega[2]) < 0) and (abs(dynamics.omega[2]) > self.heuristic_yaw)):
+        #     if (dynamics.omega[0] < 0):
+        #         sign = -1.0
+        #     else:
+        #         sign = 1.0
+        #     self.control_omega[2] = self.omega_rp_max * sign
         
-        scaling = 1
-        scaling = max(scaling, abs(self.control_omega[0]) / self.omega_rp_max)
-        scaling = max(scaling, abs(self.control_omega[1]) / self.omega_rp_max)
-        scaling = max(scaling, abs(self.control_omega[2]) / self.omega_yaw_max)
+        # scaling = 1
+        # scaling = max(scaling, abs(self.control_omega[0]) / self.omega_rp_max)
+        # scaling = max(scaling, abs(self.control_omega[1]) / self.omega_rp_max)
+        # scaling = max(scaling, abs(self.control_omega[2]) / self.omega_yaw_max)
         
-        self.control_omega[0] /= scaling
-        self.control_omega[1] /= scaling
-        self.control_omega[2] /= scaling
+        # self.control_omega[0] /= scaling
+        # self.control_omega[1] /= scaling
+        # self.control_omega[2] /= scaling
         
         self.control_thrust = collCmd * dynamics.mass # Desired acc * mass = thrust (N)
         self.control_thrust = self.control_thrust / np.sum(dynamics.thrust_max)

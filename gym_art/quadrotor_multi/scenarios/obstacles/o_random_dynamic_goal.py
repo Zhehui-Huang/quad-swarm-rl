@@ -21,7 +21,7 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
 
         # The velocity of the trajectory is sampled from a normal distribution
         self.vel_mean = 0.35
-        self.vel_std = 0.15
+        self.vel_std = 0.1
 
     def step(self):
         tick = self.envs[0].tick
@@ -52,39 +52,56 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         self.free_space = list(zip(*obst_map_locs))
 
         pos_area_flag = np.random.choice([0, 1])
+        
+        # 1: Use same goal 0: Use different goal
+        goal_scenario_flag = np.random.choice([0, 1])
+        
+        # Find the goal point for all drones
+        if (goal_scenario_flag):
+            _, global_final_goal = self.generate_pos_v3(pos_area_flag=pos_area_flag)
+        
         for i in range(self.num_agents):
             # self.start_point[i] = self.generate_pos_obst_map()
-            self.start_point[i], final_goal = self.generate_pos_v3(pos_area_flag=pos_area_flag)
+            if (goal_scenario_flag):
+                self.start_point[i], _ = self.generate_pos_v3(pos_area_flag=pos_area_flag)
+            else:
+                self.start_point[i], final_goal = self.generate_pos_v3(pos_area_flag=pos_area_flag)
             
             initial_state = traj_eval()
             initial_state.set_initial_pos(self.start_point[i])
-            
-            # final_goal = self.generate_pos_obst_map()
-            
-            # Fix the goal height at 0.65 m
-            # final_goal[2] = 0.65
-            
-            dist = np.linalg.norm(self.start_point[i] - final_goal)
-            
-            #Sample speed between 0.9 and 1.1 m/s
+
+            if (goal_scenario_flag):
+                dist = np.linalg.norm(self.start_point[i] - global_final_goal)
+            else:
+                dist = np.linalg.norm(self.start_point[i] - final_goal)
+
             traj_speed = np.random.normal(self.vel_mean, self.vel_std)
 
-            if (traj_speed < 0.15):
-                traj_speed = 0.15
-            if (traj_speed > 0.6):
-                traj_speed = 0.6
+            if (traj_speed < 0.2):
+                traj_speed = 0.2
+            if (traj_speed > 0.4):
+                traj_speed = 0.4
 
             traj_duration = dist / traj_speed
-   
-            # goal_yaw = np.random.uniform(low=-3.14, high=3.14)
+
+            # Clip in case the traj takes too long to finish.
+            if (traj_duration > self.envs[0].ep_time):
+                traj_duration = self.envs[0].ep_time
+
             goal_yaw = 0
 
-            # Generate trajectory with random time from (2, ep_time)
-            self.goal_generator[i].plan_go_to_from(initial_state=initial_state, desired_state=np.append(final_goal, goal_yaw), 
-                                                   duration=traj_duration, current_time=0)
+            # Generate trajectory with random time from (0, ep_time)
+            if (goal_scenario_flag):
+                self.goal_generator[i].plan_go_to_from(initial_state=initial_state, desired_state=np.append(global_final_goal, goal_yaw), 
+                                                    duration=traj_duration, current_time=0)
+            else:
+                self.goal_generator[i].plan_go_to_from(initial_state=initial_state, desired_state=np.append(final_goal, goal_yaw), 
+                                                    duration=traj_duration, current_time=0)
 
             #Find the initial goal
             self.end_point[i] = self.goal_generator[i].piecewise_eval(0).as_nparray()
+            
+        
 
         self.spawn_points = copy.deepcopy(self.start_point)
         

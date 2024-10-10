@@ -120,10 +120,10 @@ class QuadrotorDynamics:
         control_vector = np.zeros(4)
         
         # Controller Tuning
-        tau_rp_rate = 0.015 # 0.015
-        tau_yaw_rate = 0.75 # 0.0075
-        omega_rp_max = 7.5 #30
-        omega_yaw_max = 2.5 #10
+        tau_rp_rate = 0.015
+        tau_yaw_rate = 0.7005 # Training use 0.75
+        omega_rp_max = 30.0 #Training use 7.5
+        omega_yaw_max = 10.0 #Training use 2.5
         heuristic_rp = 12
         heuristic_yaw = 5
         max_single_rotor_thrust = np.max(self.thrust_max)
@@ -152,26 +152,26 @@ class QuadrotorDynamics:
         desired_omega_transformed[1] = lin_transform(desired_omega[1], out_min=-self.omega_max, out_max=self.omega_max)
         desired_omega_transformed[2] = lin_transform(desired_omega[2], out_min=-self.omega_max, out_max=self.omega_max)
 
-        # if (((desired_omega_transformed[0] * self.omega[0]) < 0) and (abs(self.omega[0]) > heuristic_rp)):
-        #     if (self.omega[0] < 0):
-        #         sign = -1.0
-        #     else:
-        #         sign = 1.0
-        #     desired_omega_transformed[0] = omega_rp_max * sign
+        if (((desired_omega_transformed[0] * self.omega[0]) < 0) and (abs(self.omega[0]) > heuristic_rp)):
+            if (self.omega[0] < 0):
+                sign = -1.0
+            else:
+                sign = 1.0
+            desired_omega_transformed[0] = omega_rp_max * sign
             
-        # if (((desired_omega_transformed[1] * self.omega[1]) < 0) and (abs(self.omega[1]) > heuristic_rp)):
-        #     if (self.omega[1] < 0):
-        #         sign = -1.0
-        #     else:
-        #         sign = 1.0
-        #     desired_omega_transformed[1] = omega_rp_max * sign
+        if (((desired_omega_transformed[1] * self.omega[1]) < 0) and (abs(self.omega[1]) > heuristic_rp)):
+            if (self.omega[1] < 0):
+                sign = -1.0
+            else:
+                sign = 1.0
+            desired_omega_transformed[1] = omega_rp_max * sign
             
-        # if (((desired_omega_transformed[2] * self.omega[2]) < 0) and (abs(self.omega[2]) > heuristic_yaw)):
-        #     if (self.omega[2] < 0):
-        #         sign = -1.0
-        #     else:
-        #         sign = 1.0
-        #     desired_omega_transformed[2] = omega_rp_max * sign
+        if (((desired_omega_transformed[2] * self.omega[2]) < 0) and (abs(self.omega[2]) > heuristic_yaw)):
+            if (self.omega[2] < 0):
+                sign = -1.0
+            else:
+                sign = 1.0
+            desired_omega_transformed[2] = omega_rp_max * sign
         
         scaling = 1
         scaling = max(scaling, abs(desired_omega_transformed[0]) / omega_rp_max)
