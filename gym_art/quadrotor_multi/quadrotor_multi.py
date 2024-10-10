@@ -28,7 +28,6 @@ class QuadrotorEnvMulti(gym.Env):
                  # Obstacle
                  use_obstacles, obst_density, obst_size, obst_spawn_area, obst_obs_type, obst_noise, grid_size,
                  obst_tof_resolution, obst_spawn_center, obst_grid_size_random, obst_grid_size_range,
-                 obst_penalty_range,
 
                  # Aerodynamics, Numba Speed Up, Scenarios, Room, Replay Buffer, Rendering
                  use_downwash, z_overlap, use_numba, quads_mode, sim2real_scenario, room_dims, use_replay_buffer, quads_view_mode,
@@ -98,7 +97,8 @@ class QuadrotorEnvMulti(gym.Env):
         # Reward
         self.rew_coeff = dict(
             pos=1., effort=0.05, action_change=0., crash=1., orient=1., yaw=0., omega=1., rot=0., attitude=0., spin=0.1, vel=0.,
-            quadcol_bin=5., quadcol_bin_smooth_max=4., quadcol_bin_obst=5., quadcol_bin_obst_smooth_max=0.0,
+            quadcol_bin=5., quadcol_bin_smooth_max=4., quadcol_bin_obst=5., quads_obst_collision_prox_weight=0.0, 
+            quads_obst_collision_prox_max=0.5, quads_obst_collision_prox_min=0.,
         )
         rew_coeff_orig = copy.deepcopy(self.rew_coeff)
 
@@ -143,7 +143,6 @@ class QuadrotorEnvMulti(gym.Env):
             self.obst_spawn_center = obst_spawn_center
             self.obst_grid_size_random = obst_grid_size_random
             self.obst_grid_size_range = obst_grid_size_range
-            self.obst_penalty_range = obst_penalty_range
 
             assert self.obst_size <= self.grid_size
             self.obst_tof_resolution = obst_tof_resolution

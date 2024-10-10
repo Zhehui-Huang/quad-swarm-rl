@@ -54,7 +54,6 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         obst_noise=cfg.quads_obst_noise, grid_size=quads_obst_grid_size,
         obst_tof_resolution=cfg.quads_obstacle_tof_resolution, obst_spawn_center=cfg.quads_obst_spawn_center,
         obst_grid_size_random=cfg.quads_obst_grid_size_random, obst_grid_size_range=cfg.quads_obst_grid_size_range,
-        obst_penalty_range=cfg.quads_obst_collision_smooth_penalty_range,
 
         # Aerodynamics
         use_downwash=cfg.quads_use_downwash, z_overlap=cfg.quads_z_overlap,
@@ -95,7 +94,10 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         reward_shaping['quad_rewards']['quadcol_bin'] = 0.0
         reward_shaping['quad_rewards']['quadcol_bin_smooth_max'] = 0.0
         reward_shaping['quad_rewards']['quadcol_bin_obst'] = 0.0
-        reward_shaping['quad_rewards']['quadcol_bin_obst_smooth_max'] = cfg.quads_obst_collision_smooth_max_penalty
+        reward_shaping['quad_rewards']['quads_obst_collision_prox_weight'] = 0.0
+        reward_shaping['quad_rewards']['quads_obst_collision_prox_max'] = 0.0
+        reward_shaping['quad_rewards']['quads_obst_collision_prox_min'] = 0.0
+    
         annealing = [
             AnnealSchedule('quadcol_bin', cfg.quads_collision_reward, cfg.anneal_collision_steps),
             AnnealSchedule('quadcol_bin_smooth_max', cfg.quads_collision_smooth_max_penalty,
