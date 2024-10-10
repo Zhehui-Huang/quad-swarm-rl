@@ -319,7 +319,7 @@ class Quadrotor3DSceneMulti:
             pos_update = [g[0], g[1], g[2] - self.room_dims[2] / 2]
 
             # color = QUAD_COLOR
-            self.obstacle_transforms[i].set_transform_and_color(r3d.translate(pos_update), OBST_COLOR_4)
+            self.obstacle_transforms[i-1].set_transform_and_color(r3d.translate(pos_update), OBST_COLOR_4)
 
     #def create_arrows(self, envs):
     #
