@@ -124,12 +124,12 @@ def generate_c_weights_attention(model, transpose=False):
             elif 'neighbor' in c_name:
                 nbr_layer_names.append(name)
                 neighbor_weights.append(weight)
-                outputs.append('static float nbr_output_' + str(n_nbr) + '[' + str(param.shape[1]) + '];\n')
+                # outputs.append('static float nbr_output_' + str(n_nbr) + '[' + str(param.shape[1]) + '];\n')
                 n_nbr += 1
             elif 'obstacle' in c_name:
                 obst_layer_names.append(name)
                 obst_weights.append(weight)
-                outputs.append('static float obst_output_' + str(n_obst) + '[' + str(param.shape[1]) + '];\n')
+                # outputs.append('static float obst_output_' + str(n_obst) + '[' + str(param.shape[1]) + '];\n')
                 n_obst += 1
             elif 'attention' in c_name or 'layer_norm' in c_name:
                 attn_layer_names.append(name)
@@ -179,7 +179,7 @@ def generate_c_weights_attention(model, transpose=False):
 
 
 def self_encoder_attn_c_str(prefix, weight_names, bias_names):
-    method = """void networkEvaluate(struct control_t_n *control_n, const float *state_array) {
+    method = """void networkEvaluate(struct control_t_n *control_n, float *state_array) {
         normalize_state(state_array);"""
     num_layers = len(weight_names)
     # write the for loops for forward-prop of self embed layer

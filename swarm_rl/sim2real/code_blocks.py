@@ -17,7 +17,7 @@ headers_multi_agent_mean_embed = """#include "network_evaluate_tof.h"
 """
 
 headers_single_obst_1 = """
-#define EPS 0.000001 // 1e-6
+#define EPS 0.000001f // 1e-6
 #define OBST_DIM """
 
 headers_single_obst_2 = """
@@ -39,7 +39,7 @@ headers_multi_obst_deepset_3 = """];
 
 headers_multi_agent_attention = """
 // attention stuff
-#define D_MODEL 12
+#define D_MODEL 16
 #define NUM_TOKENS 2
 #define EPS 0.000001 // 1e-6
 
@@ -59,8 +59,8 @@ static float last_layer_variances[NUM_TOKENS];
 static float attn_embeds[NUM_TOKENS][D_MODEL];
 
 static float output_embeds[3 * D_MODEL];
-static float obstacle_embeds[12];
-static float neighbor_embeds[12];
+static float obstacle_embeds[D_MODEL];
+static float neighbor_embeds[D_MODEL];
 
 float base;
 float exponent;
@@ -79,7 +79,7 @@ typedef struct control_t_n {
 	float thrust_3;
 } control_t_n;
 
-void networkEvaluate(control_t_n* control_n, const float* state_array);
+void networkEvaluate(control_t_n* control_n, float* state_array);
 
 """
 
