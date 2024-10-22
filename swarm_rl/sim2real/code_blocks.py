@@ -41,7 +41,7 @@ headers_multi_agent_attention = """
 // attention stuff
 #define D_MODEL 16
 #define NUM_TOKENS 2
-#define EPS 0.000001 // 1e-6
+#define EPS 0.000001f // 1e-6
 
 static float tokens[NUM_TOKENS][D_MODEL];
 static float q_outputs[NUM_TOKENS][D_MODEL];

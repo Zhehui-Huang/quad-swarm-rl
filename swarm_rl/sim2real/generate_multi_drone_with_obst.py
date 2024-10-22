@@ -1,7 +1,7 @@
 import os
 
 from swarm_rl.sim2real.code_blocks import attention_body, headers_network_evaluate, headers_evaluation, \
-    headers_multi_agent_attention, multi_drone_attn_eval, normalization_functions
+    headers_multi_agent_attention, multi_drone_attn_eval
 from swarm_rl.sim2real.sim2real_utils import process_layer
 
 
@@ -14,11 +14,9 @@ def generate_c_model_attention(model, output_path, output_folder, testing=False)
         var = model_state_dict['obs_normalizer.running_mean_std.running_mean_std.obs.running_var']
         m_str = process_layer('mean', mean, layer_type='bias')
         v_str = process_layer('var', var, layer_type='bias')
-        norm_method = normalization_functions
     else:
         m_str = ""
         v_str = ""
-        norm_method = ""
 
     source = ""
     structures = ""
@@ -41,11 +39,11 @@ def generate_c_model_attention(model, output_path, output_folder, testing=False)
         structures += structure
 
         if 'self' in enc_name:
-            method = self_encoder_attn_c_str(enc_name, weight_names, bias_names)
+            method = self_encoder_attn_c_str(enc_name, weight_names, bias_names, m_str)
         elif 'nbr' in enc_name:
-            method = neighbor_encoder_c_string(enc_name, weight_names, bias_names)
+            method = neighbor_encoder_c_string(enc_name, weight_names, bias_names, m_str)
         elif 'obst' in enc_name:
-            method = obstacle_encoder_c_str(enc_name, weight_names, bias_names)
+            method = obstacle_encoder_c_str(enc_name, weight_names, bias_names, m_str)
         else:
             # attention
             method = attention_body
@@ -78,8 +76,6 @@ def generate_c_model_attention(model, output_path, output_folder, testing=False)
 
     source += m_str
     source += v_str
-    
-    source += norm_method
 
     source += methods
 
@@ -178,23 +174,35 @@ def generate_c_weights_attention(model, transpose=False):
     return info
 
 
-def self_encoder_attn_c_str(prefix, weight_names, bias_names):
-    method = """void networkEvaluate(struct control_t_n *control_n, float *state_array) {
-        normalize_state(state_array);"""
+def self_encoder_attn_c_str(prefix, weight_names, bias_names, m_str):
+    method = """void networkEvaluate(struct control_t_n *control_n, float *state_array) {"""
     num_layers = len(weight_names)
     # write the for loops for forward-prop of self embed layer
     for_loops = []
-    input_for_loop = f'''
-        // Self embed layer
-        for (int i = 0; i < {prefix}_structure[0][1]; i++) {{
-            output_0[i] = 0;
-            for (int j = 0; j < {prefix}_structure[0][0]; j++) {{
-                output_0[i] += state_array[j] * {weight_names[0].replace('.', '_')}[j][i];
+    if m_str == "": 
+        input_for_loop = f'''
+            // Self embed layer
+            for (int i = 0; i < {prefix}_structure[0][1]; i++) {{
+                output_0[i] = 0;
+                for (int j = 0; j < {prefix}_structure[0][0]; j++) {{
+                    output_0[i] += state_array[j] * {weight_names[0].replace('.', '_')}[j][i];
+                }}
+                output_0[i] += {bias_names[0].replace('.', '_')}[i];
+                output_0[i] = tanhf(output_0[i]);
             }}
-            output_0[i] += {bias_names[0].replace('.', '_')}[i];
-            output_0[i] = tanhf(output_0[i]);
-        }}
-    '''
+        '''
+    else:
+        input_for_loop = f'''
+            // Self embed layer
+            for (int i = 0; i < {prefix}_structure[0][1]; i++) {{
+                output_0[i] = 0;
+                for (int j = 0; j < {prefix}_structure[0][0]; j++) {{
+                    output_0[i] += ((state_array[j] - mean[j])/input_std[j]) * {weight_names[0].replace('.', '_')}[j][i];
+                }}
+                output_0[i] += {bias_names[0].replace('.', '_')}[i];
+                output_0[i] = tanhf(output_0[i]);
+            }}
+        '''
     for_loops.append(input_for_loop)
 
     # concat self embedding and attention embedding
@@ -252,22 +260,33 @@ def self_encoder_attn_c_str(prefix, weight_names, bias_names):
     return method
 
 
-def neighbor_encoder_c_string(prefix, weight_names, bias_names):
+def neighbor_encoder_c_string(prefix, weight_names, bias_names, m_str):
     method = """void neighborEmbedder(volatile float neighbor_inputs[NEIGHBORS * NBR_OBS_DIM]) {
-        normalize_neighbor(neighbor_inputs);
-    """
+        """
     num_layers = len(weight_names)
     for_loops = []
     if num_layers == 1:
-        input_for_loop = f'''
+        if m_str == "":
+            input_for_loop = f'''
                 for (int i = 0; i < {prefix}_structure[0][1]; i++) {{
                     neighbor_embeds[i] = 0; 
                     for (int j = 0; j < {prefix}_structure[0][0]; j++) {{
                         neighbor_embeds[i] += neighbor_inputs[j] * actor_encoder_neighbor_embed_layer_0_weight[j][i]; 
                     }}
                     neighbor_embeds[i] += actor_encoder_neighbor_embed_layer_0_bias[i];
-               }}
-        '''
+                }}
+            '''
+        else:
+            input_for_loop = f'''
+                for (int i = 0; i < {prefix}_structure[0][1]; i++) {{
+                    neighbor_embeds[i] = 0; 
+                    int norm_index = j+STATE_DIM;
+                    for (int j = 0; j < {prefix}_structure[0][0]; j++) {{
+                        neighbor_embeds[i] += ((neighbor_inputs[j] - mean[norm_index]) / input_std[norm_index]) * actor_encoder_neighbor_embed_layer_0_weight[j][i]; 
+                    }}
+                    neighbor_embeds[i] += actor_encoder_neighbor_embed_layer_0_bias[i];
+                }}
+            '''
         for_loops.append(input_for_loop)
     else:
         # write the for loops for forward-prop
@@ -319,21 +338,30 @@ def neighbor_encoder_c_string(prefix, weight_names, bias_names):
     return method
 
 
-def obstacle_encoder_c_str(prefix, weight_names, bias_names):
+def obstacle_encoder_c_str(prefix, weight_names, bias_names, m_str):
     method = f"""void obstacleEmbedder(volatile float obstacle_inputs[OBST_DIM]) {{
-        //reset embeddings accumulator to zero
-        memset(obstacle_embeds, 0, sizeof(obstacle_embeds));
-        normalize_obstacle(obstacle_inputs);
     """
     num_layers = len(weight_names)
     if num_layers == 1:
         # write the for loops for forward-prop
         for_loops = []
-        input_for_loop = f'''
+        if m_str == "": 
+            input_for_loop = f'''
                 for (int i = 0; i < {prefix}_structure[0][1]; i++) {{
                     obstacle_embeds[i] = 0;
                     for (int j = 0; j < {prefix}_structure[0][0]; j++) {{
                         obstacle_embeds[i] += obstacle_inputs[j] * {weight_names[0].replace('.', '_')}[j][i];
+                    }}
+                    obstacle_embeds[i] += {bias_names[0].replace('.', '_')}[i];
+                }}
+            '''
+        else:
+            input_for_loop = f'''
+                for (int i = 0; i < {prefix}_structure[0][1]; i++) {{
+                    obstacle_embeds[i] = 0;
+                    int norm_index = j+STATE_DIM+(NEIGHBORS*NBR_OBS_DIM);
+                    for (int j = 0; j < {prefix}_structure[0][0]; j++) {{
+                        obstacle_embeds[i] += ((obstacle_inputs[j] - mean[norm_index]) / input_std[norm_index]) * {weight_names[0].replace('.', '_')}[j][i];
                     }}
                     obstacle_embeds[i] += {bias_names[0].replace('.', '_')}[i];
                 }}
