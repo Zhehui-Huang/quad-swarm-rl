@@ -12,19 +12,12 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 # Arguments marked as "Required" below must be included for upload to PyPI.
 # Fields marked as "Optional" may be commented out.
 
-if platform == "darwin":
-    pip_packages = [
-        'pytest', 'numpy>1.15', 'pyglet<=1.5.23', 'matplotlib>3', 'gym>=0.17', 'transforms3d', 'noise', 'tqdm',
-        'bezier', 'numba', 'scipy', 'sample-factory', 'plotly<=5.13.0', 'attrdict==2.0.1',
-        'pandas==2.0.1', 'gymnasium==0.28.1'
-    ]
-else:
-    pip_packages = [
-        'pytest', 'numpy>1.15', 'pyglet<=1.5.23', 'matplotlib>3', 'gym>=0.17', 'transforms3d', 'noise', 'tqdm',
-        'bezier<=2020.5.19', 'numba', 'scipy', 'sample-factory', 'plotly<=5.13.0', 'attrdict==2.0.1',
-        'pandas==2.0.1', 'gymnasium==0.28.1'
-    ]
-
+pip_packages = [
+    'numpy==1.26.4', 'matplotlib==3.9.2', 'numba==0.60.0', 'pyglet==1.5.23', 'gym==0.26.2', 'gymnasium==0.28.1',
+    'transforms3d==0.4.2', 'noise==1.2.2', 'tqdm==4.66.5', 'Cython==3.0.11', 'scipy==1.14.1',
+    'sample-factory==2.1.1', 'plotly==5.24.1', 'attrdict==2.0.1', 'pandas==2.2.3', 'torch==2.5.0',
+    'bezier==2023.7.28', 'typeguard==4.3.0'
+]
 
 setup(
     name='swarm_rl',  # Required
@@ -73,7 +66,7 @@ setup(
     # and refuse to install the project if the version does not match. If you
     # do not support Python 2, you can simplify this to '>=3.5' or similar, see
     # https://packaging.python.org/guides/distributing-packages-using-setuptools/#python-requires
-    python_requires='>=3.8.6',
+    python_requires='>=3.11.10',
 
     # This field lists other packages that your project depends on to run.
     # Any package you put here will be installed by pip when your project is
