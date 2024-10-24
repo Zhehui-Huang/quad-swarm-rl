@@ -28,7 +28,6 @@ class QuadrotorEnvMulti(gym.Env):
                  # Obstacle
                  use_obstacles, obst_density, obst_size, obst_spawn_area, obst_obs_type, obst_noise, grid_size,
                  obst_tof_resolution, obst_spawn_center, obst_grid_size_random, obst_grid_size_range,
-                 obst_penalty_range,
 
                  # Aerodynamics, Numba Speed Up, Scenarios, Room, Replay Buffer, Rendering
                  use_downwash, z_overlap, use_numba, quads_mode, sim2real_scenario, room_dims, use_replay_buffer, quads_view_mode,
@@ -98,7 +97,8 @@ class QuadrotorEnvMulti(gym.Env):
         # Reward
         self.rew_coeff = dict(
             pos=1., effort=0.05, action_change=0., crash=1., orient=1., yaw=0., omega=1., rot=0., attitude=0., spin=0.1, vel=0.,
-            quadcol_bin=5., quadcol_bin_smooth_max=4., quadcol_bin_obst=5., quadcol_bin_obst_smooth_max=0.0,
+            quadcol_bin=5., quadcol_bin_smooth_max=4., quadcol_bin_obst=5., quads_obst_collision_prox_weight=0.0, 
+            quads_obst_collision_prox_max=0.5, quads_obst_collision_prox_min=0.,
         )
         rew_coeff_orig = copy.deepcopy(self.rew_coeff)
 
@@ -143,7 +143,6 @@ class QuadrotorEnvMulti(gym.Env):
             self.obst_spawn_center = obst_spawn_center
             self.obst_grid_size_random = obst_grid_size_random
             self.obst_grid_size_range = obst_grid_size_range
-            self.obst_penalty_range = obst_penalty_range
 
             assert self.obst_size <= self.grid_size
             self.obst_tof_resolution = obst_tof_resolution
@@ -486,7 +485,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         for i, a in enumerate(actions):
             self.envs[i].rew_coeff = self.rew_coeff
-
+            
             observation, reward, done, info = self.envs[i].step(a)
             obs.append(observation)
             rewards.append(reward)
@@ -603,8 +602,10 @@ class QuadrotorEnvMulti(gym.Env):
             # smooth penalty
             rew_obst_proximity = -1.0 * calculate_drone_obst_proximity_penalties(
                 r_drone=self.quad_arm, r_obst=self.obst_size,
-                penalty_coeff=self.rew_coeff["quadcol_bin_obst_smooth_max"], penalty_range=self.obst_penalty_range,
-                quads_pos=self.pos, quads_vel=self.vel, obst_pos=self.obstacles.pos_arr, dt=self.control_dt,
+                quads_pos=self.pos, obst_pos=self.obstacles.pos_arr,
+                penalty_coeff=self.rew_coeff["quads_obst_collision_prox_weight"],
+                penalty_max=self.rew_coeff["quads_obst_collision_prox_max"],
+                penalty_min=self.rew_coeff["quads_obst_collision_prox_min"]
             )
 
         # 3) With room
@@ -736,7 +737,7 @@ class QuadrotorEnvMulti(gym.Env):
                     self.low_h_count += 1
 
         # 7. DONES
-        if all(dones):
+        if any(dones):
             scenario_name = self.scenario.name()[9:]
             for i in range(len(infos)):
                 if self.saved_in_replay_buffer:

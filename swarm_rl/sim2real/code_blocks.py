@@ -17,7 +17,7 @@ headers_multi_agent_mean_embed = """#include "network_evaluate_tof.h"
 """
 
 headers_single_obst_1 = """
-#define EPS 0.000001 // 1e-6
+#define EPS 0.000001f // 1e-6
 #define OBST_DIM """
 
 headers_single_obst_2 = """
@@ -27,17 +27,21 @@ static float obstacle_embeds["""
 headers_single_obst_3 = """];
 static float output_embeds["""
 
-headers_single_obst_4 = """];
+headers_single_obst_4 = """];"""
 
-float base;
-float exponent;
+headers_multi_obst_deepset_1 = """
+#define NBR_OBS_DIM """
+
+headers_multi_obst_deepset_2 = """
+static float neighbor_embeds["""
+headers_multi_obst_deepset_3 = """];
 """
 
 headers_multi_agent_attention = """
 // attention stuff
-#define D_MODEL 12
+#define D_MODEL 16
 #define NUM_TOKENS 2
-#define EPS 0.000001 // 1e-6
+#define EPS 0.000001f // 1e-6
 
 static float tokens[NUM_TOKENS][D_MODEL];
 static float q_outputs[NUM_TOKENS][D_MODEL];
@@ -55,8 +59,8 @@ static float last_layer_variances[NUM_TOKENS];
 static float attn_embeds[NUM_TOKENS][D_MODEL];
 
 static float output_embeds[3 * D_MODEL];
-static float obstacle_embeds[12];
-static float neighbor_embeds[12];
+static float obstacle_embeds[D_MODEL];
+static float neighbor_embeds[D_MODEL];
 
 float base;
 float exponent;
@@ -75,7 +79,7 @@ typedef struct control_t_n {
 	float thrust_3;
 } control_t_n;
 
-void networkEvaluate(control_t_n* control_n, const float* state_array);
+void networkEvaluate(control_t_n* control_n, float* state_array);
 
 """
 
@@ -169,6 +173,27 @@ float clip(float v, float min, float max) {
 	if (v < min) return min;
 	if (v > max) return max;
 	return v;
+}
+
+"""
+
+normalization_functions = """   
+void normalize_state(float *state_array) {
+    for (int i = 0; i < STATE_DIM; i++) {
+        state_array[i] = (state_array[i] - mean[i]) / ((input_std[i]) + EPS);
+    }
+}
+
+void normalize_neighbor(volatile float *neighbor_inputs) {
+    for (int i = 0; i < OBST_DIM; i++) {
+        neighbor_inputs[i] = (neighbor_inputs[i] - mean[i+STATE_DIM]) / ((input_std[i+STATE_DIM]) + EPS);
+    }
+}
+
+void normalize_obstacle(volatile float *obstacle_inputs) {
+    for (int i = 0; i < OBST_DIM; i++) {
+        obstacle_inputs[i] = (obstacle_inputs[i] - mean[i+STATE_DIM+(NEIGHBORS*NBR_OBS_DIM)]) / ((input_std[i+STATE_DIM+(NEIGHBORS*NBR_OBS_DIM)]) + EPS);
+    }
 }
 
 """

@@ -1,6 +1,7 @@
 # Always prefer setuptools over distutils
 from setuptools import setup, find_packages
 from os import path
+from sys import platform
 
 here = path.abspath(path.dirname(__file__))
 
@@ -10,6 +11,20 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 # Arguments marked as "Required" below must be included for upload to PyPI.
 # Fields marked as "Optional" may be commented out.
+
+if platform == "darwin":
+    pip_packages = [
+        'pytest', 'numpy>1.15', 'pyglet<=1.5.23', 'matplotlib>3', 'gym>=0.17', 'transforms3d', 'noise', 'tqdm',
+        'bezier', 'numba', 'scipy', 'sample-factory', 'plotly<=5.13.0', 'attrdict==2.0.1',
+        'pandas==2.0.1', 'gymnasium==0.28.1'
+    ]
+else:
+    pip_packages = [
+        'pytest', 'numpy>1.15', 'pyglet<=1.5.23', 'matplotlib>3', 'gym>=0.17', 'transforms3d', 'noise', 'tqdm',
+        'bezier<=2020.5.19', 'numba', 'scipy', 'sample-factory', 'plotly<=5.13.0', 'attrdict==2.0.1',
+        'pandas==2.0.1', 'gymnasium==0.28.1'
+    ]
+
 
 setup(
     name='swarm_rl',  # Required
@@ -66,9 +81,5 @@ setup(
     #
     # For an analysis of "install_requires" vs pip's requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
-    install_requires=[
-        'pytest', 'numpy<2.0', 'pyglet<=1.5.23', 'matplotlib>3', 'gym>=0.17', 'transforms3d', 'noise', 'tqdm',
-        'bezier', 'numba', 'scipy', 'sample-factory', 'plotly<=5.13.0', 'attrdict==2.0.1',
-        'pandas==2.0.1', 'gymnasium==0.28.1'
-    ],
+    install_requires=pip_packages,
 )

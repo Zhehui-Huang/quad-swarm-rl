@@ -87,13 +87,13 @@ class Scenario_o_base(QuadrotorScenario):
         room_width, room_depth = self.room_dims[0], self.room_dims[1]
         obst_area_width, obst_area_depth = self.obst_spawn_area[0], self.obst_spawn_area[1]
 
-        pos_x_range = [-self.room_dims[0] / 2 + pos_shift, self.room_dims[0] / 2 - pos_shift]
+        pos_x_range = [-room_width / 2 + pos_shift, room_width / 2 - pos_shift]
         if pos_area_flag == 0:
-            pos_y_range = [-self.room_dims[1] / 2 + pos_shift, -obst_area_depth/ 2 - pos_shift]
-            goal_y_range = [obst_area_depth / 2 + pos_shift, self.room_dims[1] / 2 - pos_shift]
+            pos_y_range = [-room_depth / 2 + pos_shift, -obst_area_depth/ 2 - pos_shift]
+            goal_y_range = [obst_area_depth / 2 + pos_shift, room_depth / 2 - pos_shift]
         else:
-            pos_y_range = [obst_area_depth / 2 + pos_shift, self.room_dims[1] / 2 - pos_shift]
-            goal_y_range = [-self.room_dims[1] / 2 + pos_shift, -obst_area_depth / 2 - pos_shift]
+            pos_y_range = [obst_area_depth / 2 + pos_shift, room_depth / 2 - pos_shift]
+            goal_y_range = [-room_depth / 2 + pos_shift, -obst_area_depth / 2 - pos_shift]
 
         start_pos = [
             np.random.uniform(low=pos_x_range[0], high=pos_x_range[1]),

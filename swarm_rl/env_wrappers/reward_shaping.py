@@ -6,18 +6,24 @@ from sample_factory.envs.env_utils import TrainingInfoInterface, RewardShapingIn
 
 DEFAULT_QUAD_REWARD_SHAPING_SINGLE = dict(
     quad_rewards=dict(
-        pos=1.0, effort=0.0, spin=0.05, vel=0.0, crash=50.0, orient=0.05, yaw=0.0
+        pos=1.0, effort=0.05, spin=0.1, vel=0.0, crash=1.0, orient=0.05, yaw=0.0
     ),
 )
 
 DEFAULT_QUAD_REWARD_SHAPING = copy.deepcopy(DEFAULT_QUAD_REWARD_SHAPING_SINGLE)
+
+#Neighbor Penalty
 DEFAULT_QUAD_REWARD_SHAPING['quad_rewards'].update(dict(
-    quadcol_bin=0.0, quadcol_bin_smooth_max=0.0, quadcol_bin_obst=0.0, quadcol_bin_obst_smooth_max=0.0,
+    quadcol_bin=0.0, quadcol_bin_smooth_max=0.0
 ))
+
+# Obstacles Penalty
+DEFAULT_QUAD_REWARD_SHAPING['quad_rewards'].update(dict(
+    quadcol_bin_obst=0.0, quads_obst_collision_prox_weight=0.0, quads_obst_collision_prox_max=0.0, quads_obst_collision_prox_min=0.0
+))
+
 # Update for Dynamic Goal
 DEFAULT_QUAD_REWARD_SHAPING['quad_rewards'].update(dict(
-    # We treat drone orientation equally as position. 
-    # If orientation is correct, then the correct velocity and omega allow us to better track a trajectory. 
     vel=0.0, omega=0.0, orient=0.5
 ))
 

@@ -41,6 +41,10 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
     cost_pos_raw = dist
     cost_pos = rew_coeff["pos"] * cost_pos_raw
 
+    # Double the pos penality during the last second of episode
+    if (time_remain < 1):
+        cost_pos = 2.0 * cost_pos
+
     cost_effort_raw = np.linalg.norm(action)
     cost_effort = rew_coeff["effort"] * cost_effort_raw
 

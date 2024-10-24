@@ -120,26 +120,37 @@ class QuadrotorDynamics:
         control_vector = np.zeros(4)
         
         # Controller Tuning
-        tau_rp_rate = 0.015 # 0.015
-        tau_yaw_rate = 0.0075 # 0.0075
-        omega_rp_max = 30.0 #30
-        omega_yaw_max = 10.0 #10
+        tau_rp_rate = 0.015
+        tau_yaw_rate = 0.7005 # Training use 0.75
+        omega_rp_max = 30.0 #Training use 7.5
+        omega_yaw_max = 10.0 #Training use 2.5
         heuristic_rp = 12
         heuristic_yaw = 5
         max_single_rotor_thrust = np.max(self.thrust_max)
+        
+        
+        """
+        thrust = a * pwm^2 + b * pwm
+        where PWM is normalized (range 0...1)
+        thrust is in Newtons (per rotor)
+        """
+        # pwmToThrustA = 0.091492681
+        # pwmToThrustB = 0.067673604
 
         # https://www.bitcraze.io/2022/10/thrust-upgrade-kit-for-the-crazyflie-2-1/
         # Converted from gram-froce to Newtons
         # coll_max = 0.6864655 N # Benchmarked at 70 g
-        
+        # print("Single Rotor Thrust: ", max_single_rotor_thrust)
+        # print("CF Mass: ", 1.0 * self.mass)
         # The input collective thrust is given from [0, 1] (as the NN outputs), we need to convert to our desired collective thrust range
-        collective_thrust_transformed = lin_transform(collective_thrust, out_min=1.0*self.mass, out_max=(4.0 * max_single_rotor_thrust))
+        collective_thrust_transformed = lin_transform(collective_thrust, out_min=(1.0 * self.mass), out_max=(4.0 * max_single_rotor_thrust))
         
         desired_omega_transformed = np.zeros(3)
+        
         # The input desired omega is given from [0, 1] (as the NN outputs), we need to convert to our desired omega range
-        desired_omega_transformed[0] = lin_transform(desired_omega[0], out_min=-omega_rp_max, out_max=omega_rp_max)
-        desired_omega_transformed[1] = lin_transform(desired_omega[1], out_min=-omega_rp_max, out_max=omega_rp_max)
-        desired_omega_transformed[2] = lin_transform(desired_omega[2], out_min=-omega_yaw_max, out_max=omega_yaw_max)
+        desired_omega_transformed[0] = lin_transform(desired_omega[0], out_min=-self.omega_max, out_max=self.omega_max)
+        desired_omega_transformed[1] = lin_transform(desired_omega[1], out_min=-self.omega_max, out_max=self.omega_max)
+        desired_omega_transformed[2] = lin_transform(desired_omega[2], out_min=-self.omega_max, out_max=self.omega_max)
 
         if (((desired_omega_transformed[0] * self.omega[0]) < 0) and (abs(self.omega[0]) > heuristic_rp)):
             if (self.omega[0] < 0):
@@ -173,6 +184,7 @@ class QuadrotorDynamics:
 
         J = np.diag(self.inertia)
 
+
         omegaErr = np.array([(desired_omega_transformed[0] - self.omega[0]) / tau_rp_rate,
                              (desired_omega_transformed[1] - self.omega[1]) / tau_rp_rate, 
                              (desired_omega_transformed[2] - self.omega[2]) / tau_yaw_rate])
@@ -181,9 +193,13 @@ class QuadrotorDynamics:
 
         # control_vector[0] = collective_thrust_transformed * self.mass        
         control_vector[0] = collective_thrust_transformed # This is in Newtons.
+
+        # control_vector[0] = collective_thrust_transformed * self.mass        
+        control_vector[0] = collective_thrust_transformed # This is in Newtons.
         control_vector[1] = control_torque[0]
         control_vector[2] = control_torque[1]
         control_vector[3] = control_torque[2]
+
 
         
         arm = 0.707106781 * self.model_params["geom"]["arms"]["l"]
@@ -197,9 +213,18 @@ class QuadrotorDynamics:
         motorForces[2] = thrustPart + rollPart + pitchPart - yawPart
         motorForces[3] = thrustPart + rollPart - pitchPart + yawPart        
         motorForces[motorForces < 0] = 0.0
-        motorForces[motorForces < max_single_rotor_thrust] = max_single_rotor_thrust
+        
+        # motor_pwm = []
+        
+        # for motor, i  in motorForces:
+        #     motor_pwm[i] = (-pwmToThrustB + (pwmToThrustB * pwmToThrustB + 4.0* pwmToThrustA*motor)**0.5) / (2.0 * pwmToThrustA)
         
         # Convert the desired motor thrusts to range [0,1] for the dynamics to handle
+        thrusts = (1/max_single_rotor_thrust) * motorForces
+        
+        #Additional Clipping
+        thrusts[thrusts > 1.0] = 1.0
+        thrusts[thrusts < 0.0] = 0.0
         thrusts = (1/max_single_rotor_thrust) * motorForces
         
         #Additional Clipping
@@ -249,8 +274,7 @@ class QuadrotorDynamics:
             self.motor_assymetry = np.array([1.0, 1.0, 1.0, 1.0])
             print("WARNING: Motor assymetry was not setup. Setting assymetry to:", self.motor_assymetry)
         self.motor_assymetry = self.motor_assymetry * 4. / np.sum(self.motor_assymetry)  # re-normalizing to sum-up to 4
-        # self.thrust_max = (GRAV * self.mass * self.thrust_to_weight * self.motor_assymetry / 4.0)
-        self.thrust_max = (GRAV * self.mass * self.thrust_to_weight * self.motor_assymetry / 4.0) * 1.25
+        self.thrust_max = (GRAV * self.mass * self.thrust_to_weight * self.motor_assymetry / 4.0)
         self.torque_max = self.torque_to_thrust * self.thrust_max  # propeller torque scales
 
         # Propeller positions in X configurations

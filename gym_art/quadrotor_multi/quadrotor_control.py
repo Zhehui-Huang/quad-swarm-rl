@@ -52,6 +52,17 @@ class CollectiveThrustBodyRate(object):
         
         
     def step(self, dynamics, action, goal, dt, observation=None):
+        
+        def lin_transform(a, out_max, out_min):
+            """
+            Transforms value a into range [out_max, out_min] given input ranges [in_max, in_min]
+            """
+            in_min = -35
+            in_max = 35
+
+
+            return (a - in_min) * ((out_max - out_min)/(in_max - in_min)) + out_min
+        
         accDes = np.zeros(3)
         
         collCmd = 0.0
@@ -78,6 +89,8 @@ class CollectiveThrustBodyRate(object):
         
         temp1 = self.qeye()
         temp2 = self.qeye()
+        
+        goal[3:] = np.zeros(10)
         
         pError = goal[:3] - dynamics.pos
         vError = goal[3:6] - dynamics.vel
@@ -133,7 +146,7 @@ class CollectiveThrustBodyRate(object):
             accDes[1] = r*y
             accDes[2] = (r*f+(1-f))*z + dynamics.gravity
         
-        collCmd = self.constrain(accDes[2] / R22, self.coll_min, self.coll_max)
+        collCmd = self.constrain(accDes[2] / R22, self.coll_min, self.coll_max) 
         
         zI_des = self.normalize(accDes)
         zI_cur = self.normalize(np.array([R02, R12, R22]))
@@ -218,41 +231,43 @@ class CollectiveThrustBodyRate(object):
         self.control_omega[1] = 2.0 / self.tau_rp * attError[1]
         self.control_omega[2] = 2.0 / self.tau_rp * attError[2] + goal[11]
         
-        if (((self.control_omega[0] * dynamics.omega[0]) < 0) and (abs(dynamics.omega[0]) > self.heuristic_rp)):
-            if (dynamics.omega[0] < 0):
-                sign = -1.0
-            else:
-                sign = 1.0
-            self.control_omega[0] = self.omega_rp_max * sign
+        # if (((self.control_omega[0] * dynamics.omega[0]) < 0) and (abs(dynamics.omega[0]) > self.heuristic_rp)):
+        #     if (dynamics.omega[0] < 0):
+        #         sign = -1.0
+        #     else:
+        #         sign = 1.0
+        #     self.control_omega[0] = self.omega_rp_max * sign
             
-        if (((self.control_omega[1] * dynamics.omega[1]) < 0) and (abs(dynamics.omega[1]) > self.heuristic_rp)):
-            if (dynamics.omega[0] < 0):
-                sign = -1.0
-            else:
-                sign = 1.0
-            self.control_omega[1] = self.omega_rp_max * sign
+        # if (((self.control_omega[1] * dynamics.omega[1]) < 0) and (abs(dynamics.omega[1]) > self.heuristic_rp)):
+        #     if (dynamics.omega[0] < 0):
+        #         sign = -1.0
+        #     else:
+        #         sign = 1.0
+        #     self.control_omega[1] = self.omega_rp_max * sign
             
-        if (((self.control_omega[2] * dynamics.omega[2]) < 0) and (abs(dynamics.omega[2]) > self.heuristic_yaw)):
-            if (dynamics.omega[0] < 0):
-                sign = -1.0
-            else:
-                sign = 1.0
-            self.control_omega[2] = self.omega_rp_max * sign
+        # if (((self.control_omega[2] * dynamics.omega[2]) < 0) and (abs(dynamics.omega[2]) > self.heuristic_yaw)):
+        #     if (dynamics.omega[0] < 0):
+        #         sign = -1.0
+        #     else:
+        #         sign = 1.0
+        #     self.control_omega[2] = self.omega_rp_max * sign
         
-        scaling = 1
-        scaling = max(scaling, abs(self.control_omega[0]) / self.omega_rp_max)
-        scaling = max(scaling, abs(self.control_omega[1]) / self.omega_rp_max)
-        scaling = max(scaling, abs(self.control_omega[2]) / self.omega_yaw_max)
+        # scaling = 1
+        # scaling = max(scaling, abs(self.control_omega[0]) / self.omega_rp_max)
+        # scaling = max(scaling, abs(self.control_omega[1]) / self.omega_rp_max)
+        # scaling = max(scaling, abs(self.control_omega[2]) / self.omega_yaw_max)
         
-        self.control_omega[0] /= scaling
-        self.control_omega[1] /= scaling
-        self.control_omega[2] /= scaling
+        # self.control_omega[0] /= scaling
+        # self.control_omega[1] /= scaling
+        # self.control_omega[2] /= scaling
         
-        self.control_thrust = collCmd
+        self.control_thrust = collCmd * dynamics.mass # Desired acc * mass = thrust (N)
+        self.control_thrust = self.control_thrust / np.sum(dynamics.thrust_max)
+        self.control_omega = lin_transform(self.control_omega, out_max=1, out_min=0)
         
         desired_state = np.array([self.control_thrust, self.control_omega[0], 
                                             self.control_omega[1], self.control_omega[2]])
-        
+
         dynamics.step(desired_state, dt)
         self.action = desired_state.copy()
 
