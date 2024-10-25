@@ -165,6 +165,10 @@ class QuadMultiHeadAttentionEncoder(Encoder):
                 self.obstacle_obs_dim = QUADS_OBSTACLE_OBS_TYPE['ToFs_8']
             else:
                 raise NotImplementedError(f'Obstacle TOF resolution {cfg.quads_obstacle_tof_resolution} not supported!')
+        elif cfg.quads_obstacle_obs_type == 'octomap':
+            self.obstacle_obs_dim = QUADS_OBSTACLE_OBS_TYPE['octomap']
+        else:
+            raise NotImplementedError(f'Obstacle observation type {cfg.quads_obstacle_obs_type} not supported!')
 
         self.obstacle_embed_layer = nn.Sequential(
             fc_layer(self.obstacle_obs_dim, fc_encoder_layer),
@@ -330,6 +334,11 @@ class QuadMultiEncoder(Encoder):
                 else:
                     raise NotImplementedError(
                         f'Obstacle TOF resolution {cfg.quads_obstacle_tof_resolution} not supported!')
+            elif cfg.quads_obstacle_obs_type == 'octomap':
+                obstacle_obs_dim = QUADS_OBSTACLE_OBS_TYPE['octomap']
+            else:
+                raise NotImplementedError(f'Obstacle observation type {cfg.quads_obstacle_obs_type} not supported!')
+
             obstacle_hidden_size = cfg.quads_obst_hidden_size
             self.obstacle_encoder = nn.Sequential(
                 fc_layer(obstacle_obs_dim, obstacle_hidden_size),
