@@ -19,14 +19,19 @@ References:
 """
 import copy
 
-import numpy as np
 from gymnasium.utils import seeding
+from gymnasium import spaces
 
 import gym_art.quadrotor_multi.get_state as get_state
 import gym_art.quadrotor_multi.quadrotor_randomization as quad_rand
-from gym_art.quadrotor_multi.quadrotor_control import *
+from gym_art.quadrotor_multi.quad_utils import *
 from gym_art.quadrotor_multi.quadrotor_dynamics import QuadrotorDynamics
 from gym_art.quadrotor_multi.sensor_noise import SensorNoise
+from gym_art.quadrotor_multi.control.vertical_control import VerticalControl
+from gym_art.quadrotor_multi.control.vertical_plane_control import VertPlaneControl
+from gym_art.quadrotor_multi.control.raw_control import RawControl
+from gym_art.quadrotor_multi.control.collective_thrust_body_rate import CollectiveThrustBodyRate
+
 from scipy.spatial.transform import Rotation as scipy_rotation
 
 GRAV = 9.81  # default gravitational constant
