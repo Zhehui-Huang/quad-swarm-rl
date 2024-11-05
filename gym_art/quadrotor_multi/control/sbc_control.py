@@ -2,7 +2,7 @@ import osqp
 import scipy.sparse as spa
 
 from gym_art.quadrotor_multi.control.utils import _compute_maximum_distance_to_boundary, get_min_real_dist, \
-    get_G_h, get_G_h_room, get_obst_min_real_dist, get_obst_G_h, quadrotor_jacobian, vee
+    get_G_h, get_G_h_room, get_obst_min_real_dist, get_obst_G_h, quadrotor_jacobian
 from gym_art.quadrotor_multi.quad_utils import *
 
 GRAV = 9.81
@@ -188,13 +188,17 @@ class MellingerController(object):
 
         sbc_radius = params['sbc_radius']
         sbc_max_acc = params['sbc_max_acc']
+        sbc_neighbor_aggressive = params['sbc_neighbor_aggressive']
+        sbc_obst_aggressive = params['sbc_obst_aggressive']
+        sbc_room_aggressive = params['sbc_room_aggressive']
+
         self.sbc = NominalSBC(
             maximum_linf_acceleration=sbc_max_acc, radius=sbc_radius, room_box=room_box,
-            num_agents=num_agents, num_obstacles=num_obstacles
+            num_agents=num_agents, num_obstacles=num_obstacles, sbc_neighbor_aggressive=sbc_neighbor_aggressive,
+            sbc_obst_aggressive=sbc_obst_aggressive, sbc_room_aggressive=sbc_room_aggressive
         )
 
     def step(self, acc_des, observation):
-        # Preset
         acc_rl = np.array(acc_des)
 
         new_acc, sbc_distance_to_boundary = self.sbc.plan(

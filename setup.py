@@ -1,7 +1,5 @@
-# Always prefer setuptools over distutils
 from setuptools import setup, find_packages
 from os import path
-from sys import platform
 
 here = path.abspath(path.dirname(__file__))
 
@@ -16,7 +14,7 @@ pip_packages = [
     'numpy==1.26.4', 'matplotlib==3.9.2', 'numba==0.60.0', 'pyglet==1.5.23', 'gym==0.26.2', 'gymnasium==0.28.1',
     'transforms3d==0.4.2', 'noise==1.2.2', 'tqdm==4.66.5', 'Cython==3.0.11', 'scipy==1.14.1',
     'sample-factory==2.1.1', 'plotly==5.24.1', 'attrdict==2.0.1', 'pandas==2.2.3', 'torch==2.5.0',
-    'bezier==2023.7.28', 'typeguard==4.3.0'
+    'bezier==2023.7.28', 'typeguard==4.3.0', 'osqp==0.6.7.post3'
 ]
 
 setup(

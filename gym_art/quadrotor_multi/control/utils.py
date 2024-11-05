@@ -167,6 +167,3 @@ def get_G_h_room(self_state_vel, neighbor_descriptions, rel_pos_arr, rel_pos_nor
         h[start_id + idx] = bij_bar
 
     return G, h
-
-def vee(R):
-    return np.array([R[2, 1], R[0, 2], R[1, 0]])
