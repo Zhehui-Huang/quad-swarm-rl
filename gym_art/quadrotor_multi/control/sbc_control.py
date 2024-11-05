@@ -47,32 +47,32 @@ class NominalSBC:
                 neighbor_des_num=neighbor_des_num
             )
             safety_distance = self.radius + neighbor_descriptions[0]['radius']
-            if min_rel_dist < safety_distance:
+            if min_rel_dist <= safety_distance:
                 return None, None
         else:
             safety_distance = None
 
-        # Obstacle min_rel_dist check
         obst_des_num = len(obstacle_descriptions)
-        obst_rel_pos_arr = np.zeros((obst_des_num, 2))
-        obst_rel_pos_norm_arr = np.zeros(obst_des_num)
         if obst_des_num > 0:
-            min_rel_dist = 100.0
+            obst_rel_pos_arr = np.zeros((obst_des_num, 2))
+            obst_rel_pos_norm_arr = np.zeros(obst_des_num)
+
             description_state_pos = -1 * np.ones((self.num_obstacles, 2))
+            obst_safety_distance_arr = np.zeros(obst_des_num)
             for idx in range(obst_des_num):
                 description_state_pos[idx] = obstacle_descriptions[idx]['state']['position']
+                obst_safety_distance_arr[idx] = self.radius + obstacle_descriptions[idx]['radius']
 
-            min_rel_dist = get_obst_min_real_dist(
-                min_rel_dist=min_rel_dist, self_state_pos=self_state['position'][:2],
+            obst_rel_pos_arr, obst_rel_pos_norm_arr = get_obst_min_real_dist(
+                self_state_pos=self_state['position'][:2],
                 description_state_pos=description_state_pos, rel_pos_arr=obst_rel_pos_arr,
                 rel_pos_norm_arr=obst_rel_pos_norm_arr, neighbor_des_num=obst_des_num)
 
-            # # Obst min_rel_dist
-            obst_safety_distance = self.radius + obstacle_descriptions[0]['radius']
-            if min_rel_dist < obst_safety_distance:
-                return None, None
+            for real_dist, safe_dist in zip(obst_rel_pos_norm_arr, obst_safety_distance_arr):
+                if real_dist <= safe_dist:
+                    return None, None
         else:
-            obst_safety_distance = None
+            obst_safety_distance_arr = None
 
         # Room box
         # Add room box constraints
@@ -122,7 +122,7 @@ class NominalSBC:
                 neighbor_descriptions=obst_description_state_vel,
                 rel_pos_arr=obst_rel_pos_arr,
                 rel_pos_norm_arr=obst_rel_pos_norm_arr,
-                safety_distance=obst_safety_distance,
+                safety_distance_arr=obst_safety_distance_arr,
                 maximum_linf_acceleration=self.maximum_linf_acceleration,
                 aggressiveness=self.sbc_obst_aggressive,
                 G=G,
@@ -180,17 +180,14 @@ class MellingerController(object):
         self.Jinv = np.linalg.inv(jacobian)
         self.rot_des = np.eye(3)
 
-        self.kp_a = params['kp_a']
-        self.kd_a = params['kd_a']
-
         self.sbc_last_safe_acc = np.zeros(3)
         self.step_func = self.step
 
-        sbc_radius = params['sbc_radius']
-        sbc_max_acc = params['sbc_max_acc']
-        sbc_neighbor_aggressive = params['sbc_neighbor_aggressive']
-        sbc_obst_aggressive = params['sbc_obst_aggressive']
-        sbc_room_aggressive = params['sbc_room_aggressive']
+        sbc_radius = 0.05
+        sbc_max_acc = 2.0
+        sbc_neighbor_aggressive = 0.2
+        sbc_obst_aggressive = 0.2
+        sbc_room_aggressive = 0.2
 
         self.sbc = NominalSBC(
             maximum_linf_acceleration=sbc_max_acc, radius=sbc_radius, room_box=room_box,

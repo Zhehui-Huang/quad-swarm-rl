@@ -58,17 +58,15 @@ def get_min_real_dist(min_rel_dist, self_state_pos, description_state_pos, rel_p
 
 
 @njit
-def get_obst_min_real_dist(min_rel_dist, self_state_pos, description_state_pos, rel_pos_arr, rel_pos_norm_arr,
-                           neighbor_des_num):
+def get_obst_min_real_dist(self_state_pos, description_state_pos, rel_pos_arr, rel_pos_norm_arr, neighbor_des_num):
     for idx in range(neighbor_des_num):
         rel_pos = self_state_pos - description_state_pos[idx]
         rel_pos_norm = np.linalg.norm(rel_pos)
 
         rel_pos_arr[idx] = rel_pos
         rel_pos_norm_arr[idx] = rel_pos_norm
-        min_rel_dist = min(rel_pos_norm, min_rel_dist)
 
-    return min_rel_dist
+    return rel_pos_arr, rel_pos_norm_arr
 
 
 @njit
@@ -103,12 +101,12 @@ def get_G_h(self_state_vel, neighbor_descriptions, rel_pos_arr, rel_pos_norm_arr
 
 
 @njit
-def get_obst_G_h(self_state_vel, neighbor_descriptions, rel_pos_arr, rel_pos_norm_arr, safety_distance,
+def get_obst_G_h(self_state_vel, neighbor_descriptions, rel_pos_arr, rel_pos_norm_arr, safety_distance_arr,
                  maximum_linf_acceleration, aggressiveness, G, h, start_id, max_lin_acc, neighbor_des_num):
     for idx in range(neighbor_des_num):
         # rel pos and rel vel is 2D
         rel_vel = self_state_vel - neighbor_descriptions[idx]
-        safe_rel_dist = rel_pos_norm_arr[idx] - safety_distance
+        safe_rel_dist = rel_pos_norm_arr[idx] - safety_distance_arr[idx]
         rel_pos_dot_rel_vel = np.dot(rel_pos_arr[idx], rel_vel)
 
         # chunk 1
