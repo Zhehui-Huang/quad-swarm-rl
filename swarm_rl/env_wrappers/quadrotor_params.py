@@ -151,3 +151,7 @@ def add_quadrotors_env_args(env, parser):
     p.add_argument('--quads_enable_sbc', default=True, type=str2bool, help='Whether to use sbc or not')
     p.add_argument('--quads_neighbor_range', default=2.0, type=float, help='Consider other drones in this range')
     p.add_argument('--quads_obst_range', default=2.0, type=float, help='Consider obstacles in this range')
+
+    p.add_argument('--quads_coeff_omega', default=0.0, type=float, help='Reward coeff of rl_acc and sbc_acc')
+    p.add_argument('--quads_coeff_sbc_acc', default=0.0, type=float, help='Reward coeff of rl_acc and sbc_acc')
+    p.add_argument('--quads_coeff_sbc_boundary', default=0.0, type=float, help='Reward coeff of sbc_boundary')
