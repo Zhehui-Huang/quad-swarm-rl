@@ -73,7 +73,7 @@ class QuadrotorEnvMulti(gym.Env):
                 neighbor_obs_type=neighbor_obs_type, num_use_neighbor_obs=self.num_use_neighbor_obs,
                 # Obstacle
                 use_obstacles=use_obstacles, obst_obs_type=obst_obs_type, obst_tof_resolution=obst_tof_resolution,
-                obst_spawn_area=obst_spawn_area,
+                obst_spawn_area=obst_spawn_area, obst_num=int(obst_density * obst_spawn_area[0] * obst_spawn_area[1]),
                 #Controller
                 use_ctbr=use_ctbr
             )

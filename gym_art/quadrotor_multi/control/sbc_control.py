@@ -175,7 +175,7 @@ class NominalSBC:
 
 
 class MellingerController(object):
-    def __init__(self, dynamics, room_box, num_agents, num_obstacles, params):
+    def __init__(self, dynamics, room_box, num_agents, num_obstacles):
         jacobian = quadrotor_jacobian(dynamics)
         self.Jinv = np.linalg.inv(jacobian)
         self.rot_des = np.eye(3)

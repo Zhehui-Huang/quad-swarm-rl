@@ -24,6 +24,7 @@ from gymnasium import spaces
 
 import gym_art.quadrotor_multi.get_state as get_state
 import gym_art.quadrotor_multi.quadrotor_randomization as quad_rand
+from gym_art.quadrotor_multi.control.sbc_control import MellingerController
 from gym_art.quadrotor_multi.quad_utils import *
 from gym_art.quadrotor_multi.quadrotor_dynamics import QuadrotorDynamics
 from gym_art.quadrotor_multi.sensor_noise import SensorNoise
@@ -43,12 +44,12 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
     
     # Distance to the goal
     dist = np.linalg.norm(goal[:3] - dynamics.pos)
-    cost_pos_raw = dist
-    cost_pos = rew_coeff["pos"] * cost_pos_raw
+    if dist >= 0.2:
+        cost_pos_raw = dist
+    else:
+        cost_pos_raw = 0.2 * (2 - np.exp(-8 * (dist - 0.2)))
 
-    # Double the pos penality during the last second of episode
-    if (time_remain < 1):
-        cost_pos = 2.0 * cost_pos
+    cost_pos = rew_coeff["pos"] * cost_pos_raw
 
     cost_effort_raw = np.linalg.norm(action)
     cost_effort = rew_coeff["effort"] * cost_effort_raw
@@ -86,22 +87,23 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
             cost_orient_raw = -dynamics.rot[2, 2]
     cost_orient = rew_coeff["orient"] * cost_orient_raw
 
-    # Loss for constant uncontrolled rotation around vertical axis
-    cost_spin_raw = (dynamics.omega[0] ** 2 + dynamics.omega[1] ** 2 + dynamics.omega[2] ** 2) ** 0.5
-    cost_spin = rew_coeff["spin"] * cost_spin_raw
-
     if dynamic_goal:
         # Goal is given as omega in roll, pitch, yaw axis
         cost_omega_raw = abs(dynamics.omega[0] - goal[9]) + abs(dynamics.omega[1]  - goal[10]) + abs(dynamics.omega[2] - goal[11])
         cost_omega = rew_coeff["omega"] * cost_omega_raw
-    else:
-        cost_omega = 0
-        
-    if dynamic_goal:
+
         cost_vel_raw = abs(dynamics.vel[0] - goal[3]) + abs(dynamics.vel[1] - goal[4]) + abs(dynamics.vel[2] - goal[5])
         cost_vel = rew_coeff["vel"] * cost_vel_raw
+
+        cost_spin_raw = 0
+        cost_spin = 0
     else:
+        cost_omega = 0
         cost_vel = 0
+
+        # Loss for constant uncontrolled rotation around vertical axis
+        cost_spin_raw = (dynamics.omega[0] ** 2 + dynamics.omega[1] ** 2 + dynamics.omega[2] ** 2) ** 0.5
+        cost_spin = rew_coeff["spin"] * cost_spin_raw
 
     # Loss crash for staying on the floor
     cost_crash_raw = float(on_floor)
@@ -162,15 +164,19 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
 # size of the env and init state distribution are not the same ! It is done for the reason of having static (and
 # preferably short) episode length, since for some distance it would be impossible to reach the goal
 class QuadrotorSingle:
-    def __init__(self, dynamics_params="DefaultQuad", dynamics_change=None,
-                 dynamics_randomize_every=None, dyn_sampler_1=None, dyn_sampler_2=None,
-                 raw_control=True, raw_control_zero_middle=True, dim_mode='3D', tf_control=False, sim_freq=200.,
-                 sim_steps=2, obs_repr="xyz_vxyz_R_omega", ep_time=7, room_dims=(10.0, 10.0, 10.0),
-                 init_random_state=False, sense_noise=None, verbose=False, gravity=GRAV,
-                 t2w_std=0.005, t2t_std=0.0005, excite=False, dynamics_simplification=False, use_numba=False,
-                 neighbor_obs_type='none', num_agents=1, num_use_neighbor_obs=0, use_obstacles=False,
-                 obst_obs_type='none', obs_rel_rot=False, obst_tof_resolution=4, obst_spawn_area=[15.0, 8.0],
-                 dynamic_goal=False, use_ctbr=False):
+    def __init__(
+            # Quad Parameters
+            self, dynamics_params="DefaultQuad", dynamics_change=None, dynamics_randomize_every=None,
+            dyn_sampler_1=None, dyn_sampler_2=None, raw_control=True, raw_control_zero_middle=True, sense_noise=None,
+            init_random_state=False, obs_repr="xyz_vxyz_R_omega", ep_time=15, room_dims=(10.0, 10.0, 10.0), use_numba=False, obs_rel_rot=False,
+            dynamic_goal=False,
+            verbose=False, gravity=GRAV, dim_mode='3D', tf_control=False, sim_freq=200, sim_steps=2,
+            t2w_std=0.005, t2t_std=0.0005, excite=False, dynamics_simplification=False,
+            # Neighbor
+            num_agents=8, neighbor_obs_type='none', num_use_neighbor_obs=0,
+            # Obstacle
+            use_obstacles=False, obst_obs_type='none', obst_tof_resolution=4, obst_spawn_area=None, obst_num=0,
+            use_ctbr=False, use_sbc=False):
         np.seterr(under='ignore')
         """
         Args:
@@ -304,7 +310,13 @@ class QuadrotorSingle:
 
         # Make observation space
         self.observation_space = self.make_observation_space()
-        
+
+        # Aux
+        if use_sbc:
+            self.sbc_controller = MellingerController(
+                dynamics=self.dynamics, room_box=self.room_box, num_agents=num_agents, num_obstacles=obst_num
+            )
+
         self._seed()
 
 
