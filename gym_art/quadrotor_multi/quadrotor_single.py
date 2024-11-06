@@ -40,8 +40,23 @@ GRAV = 9.81  # default gravitational constant
 
 # reasonable reward function for hovering at a goal and not flying too high
 def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, action_prev, on_floor=False,
-                            obs_rel_rot=False, base_rot=np.eye(3), dynamic_goal=False):
-    
+                            obs_rel_rot=False, base_rot=np.eye(3), dynamic_goal=False, sbc_info=None):
+
+    if sbc_info is not None:
+        # sbc acc
+        acc_rl = np.array(dynamics.acc)
+        acc_sbc = sbc_info['acc']
+        cost_sbc_acc_raw = np.linalg.norm(acc_sbc - acc_rl)
+
+        # sbc boundary
+        cost_sbc_boundary_raw = sbc_info['distance_to_boundary']
+    else:
+        cost_sbc_acc_raw = 0.0
+        cost_sbc_boundary_raw = 0.0
+
+    cost_sbc_acc = rew_coeff["sbc_acc"] * cost_sbc_acc_raw
+    cost_sbc_boundary = rew_coeff["sbc_boundary"] * cost_sbc_boundary_raw
+
     # Distance to the goal
     dist = np.linalg.norm(goal[:3] - dynamics.pos)
     if dist >= 0.2:
@@ -98,7 +113,10 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
         cost_spin_raw = 0
         cost_spin = 0
     else:
+        cost_omega_raw = 0
         cost_omega = 0
+
+        cost_vel_raw = 0
         cost_vel = 0
 
         # Loss for constant uncontrolled rotation around vertical axis
@@ -127,6 +145,8 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
         cost_orient,
         cost_spin,
         cost_low_height,
+        cost_sbc_acc,
+        cost_sbc_boundary
     ])
 
     rew_info = {
@@ -139,6 +159,8 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
         "rew_orient": -cost_orient,
         "rew_spin": -cost_spin,
         "rew_lowh": -cost_low_height,
+        'rew_sbc_acc': -cost_sbc_acc,
+        'rew_sbc_boundary': -cost_sbc_boundary,
 
         "rewraw_main": -cost_pos_raw,
         'rewraw_pos': -cost_pos_raw,
@@ -147,6 +169,10 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
         "rewraw_orient": -cost_orient_raw,
         "rewraw_spin": -cost_spin_raw,
         "rewraw_lowh": -cost_low_height_raw,
+        'rewraw_omega': -cost_omega_raw,
+        'rewraw_vel': -cost_vel_raw,
+        'rewraw_sbc_acc': -cost_sbc_acc_raw,
+        'rewraw_sbc_boundary': -cost_sbc_boundary_raw
     }
 
     for k, v in rew_info.items():
@@ -438,17 +464,31 @@ class QuadrotorSingle:
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def _step(self, action):
+    def _step(self, action, sbc_data):
         self.actions[1] = copy.deepcopy(self.actions[0])
         self.actions[0] = copy.deepcopy(action)
 
         self.controller.step_func(dynamics=self.dynamics, action=action, goal=self.goal, dt=self.dt, observation=None)
 
         self.time_remain = self.ep_len - self.tick
+
+        if sbc_data is not None:
+            acc_sbc, sbc_distance_to_boundary, no_sol_flag = self.sbc_controller.step_func(
+                acc_des=action, observation=sbc_data
+            )
+            sbc_info = {
+                'acc_sbc': acc_sbc,
+                'sbc_distance_to_boundary': sbc_distance_to_boundary,
+            }
+        else:
+            sbc_info=None
+
         reward, rew_info = compute_reward_weighted(
             dynamics=self.dynamics, goal=self.goal, action=action, dt=self.dt, time_remain=self.time_remain,
             rew_coeff=self.rew_coeff, action_prev=self.actions[1], on_floor=self.dynamics.on_floor,
-            obs_rel_rot=self.obs_rel_rot, base_rot=self.base_rot, dynamic_goal=self.dynamic_goal)
+            obs_rel_rot=self.obs_rel_rot, base_rot=self.base_rot, dynamic_goal=self.dynamic_goal,
+            sbc_info=sbc_info
+        )
 
         self.tick += 1
         done = self.tick > self.ep_len
@@ -555,5 +595,5 @@ class QuadrotorSingle:
         """This class is only meant to be used as a component of QuadMultiEnv."""
         raise NotImplementedError()
 
-    def step(self, action):
-        return self._step(action)
+    def step(self, action, sbc_data):
+        return self._step(action, sbc_data)

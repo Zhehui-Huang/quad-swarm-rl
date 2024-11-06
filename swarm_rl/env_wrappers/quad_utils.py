@@ -54,7 +54,6 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         obst_noise=cfg.quads_obst_noise, grid_size=quads_obst_grid_size,
         obst_tof_resolution=cfg.quads_obstacle_tof_resolution, obst_spawn_center=cfg.quads_obst_spawn_center,
         obst_grid_size_random=cfg.quads_obst_grid_size_random, obst_grid_size_range=cfg.quads_obst_grid_size_range,
-
         # Aerodynamics
         use_downwash=cfg.quads_use_downwash, z_overlap=cfg.quads_z_overlap,
         # Numba Speed Up
@@ -73,6 +72,8 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         sense_noise=sense_noise, init_random_state=True,
         # Rendering
         render_mode=cfg.quads_render_mode,
+        # SBC
+        enable_sbc=cfg.quads_enable_sbc, sbc_neighbor_range=cfg.quads_neighbor_range, sbc_obst_range=cfg.quads_obst_range,
     )
 
     if use_replay_buffer:

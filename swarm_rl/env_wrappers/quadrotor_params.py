@@ -146,3 +146,8 @@ def add_quadrotors_env_args(env, parser):
 
     # Sim2Real
     p.add_argument('--quads_sim2real', default=False, type=str2bool, help='Whether to use sim2real or not')
+
+    # Enable sbc
+    p.add_argument('--quads_enable_sbc', default=True, type=str2bool, help='Whether to use sbc or not')
+    p.add_argument('--quads_neighbor_range', default=2.0, type=float, help='Consider other drones in this range')
+    p.add_argument('--quads_obst_range', default=2.0, type=float, help='Consider obstacles in this range')
