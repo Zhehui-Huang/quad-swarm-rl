@@ -145,7 +145,11 @@ class QuadMultiHeadAttentionEncoder(Encoder):
         self.all_neighbor_obs_dim = self.neighbor_obs_dim * self.num_use_neighbor_obs
 
         # Embedding Layer
-        fc_encoder_layer = cfg.rnn_size
+        if cfg.quads_critic_rnn_size > 0:
+            fc_encoder_layer = cfg.quads_critic_rnn_size
+        else:
+            fc_encoder_layer = cfg.rnn_size
+
         self.self_embed_layer = nn.Sequential(
             fc_layer(self.self_obs_dim, fc_encoder_layer),
             nonlinearity(cfg),
@@ -178,12 +182,11 @@ class QuadMultiHeadAttentionEncoder(Encoder):
         )
 
         # Attention Layer
-        self.attention_layer = MultiHeadAttention(4, cfg.rnn_size, cfg.rnn_size, cfg.rnn_size)
+        self.attention_layer = MultiHeadAttention(4, fc_encoder_layer, fc_encoder_layer, fc_encoder_layer)
 
         # MLP Layer
-        self.encoder_output_size = 2 * cfg.rnn_size
-        self.feed_forward = nn.Sequential(fc_layer(3 * cfg.rnn_size, self.encoder_output_size),
-                                          nn.Tanh())
+        self.encoder_output_size = 2 * fc_encoder_layer
+        self.feed_forward = nn.Sequential(fc_layer(3 * fc_encoder_layer, self.encoder_output_size), nn.Tanh())
 
     def forward(self, obs_dict):
         obs = obs_dict['obs']
@@ -384,10 +387,13 @@ class QuadMultiEncoder(Encoder):
 
 def make_quadmulti_encoder(cfg, obs_space) -> Encoder:
     if cfg.quads_encoder_type == "attention":
-        if cfg.quads_sim2real:
-            model = QuadSingleHeadAttentionEncoder_Sim2Real(cfg, obs_space)
-        else:
+        if cfg.is_critic:
             model = QuadMultiHeadAttentionEncoder(cfg, obs_space)
+        else:
+            if cfg.quads_sim2real:
+                model = QuadSingleHeadAttentionEncoder_Sim2Real(cfg, obs_space)
+            else:
+                model = QuadMultiHeadAttentionEncoder(cfg, obs_space)
     else:
         model = QuadMultiEncoder(cfg, obs_space)
     return model

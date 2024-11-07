@@ -156,3 +156,6 @@ def add_quadrotors_env_args(env, parser):
     p.add_argument('--quads_coeff_omega', default=0.0, type=float, help='Reward coeff of rl_acc and sbc_acc')
     p.add_argument('--quads_coeff_sbc_acc', default=0.0, type=float, help='Reward coeff of rl_acc and sbc_acc')
     p.add_argument('--quads_coeff_sbc_boundary', default=0.0, type=float, help='Reward coeff of sbc_boundary')
+
+    # Critic
+    p.add_argument('--quads_critic_rnn_size', default=-1, type=int, help='We have critic, which is different from actor')
