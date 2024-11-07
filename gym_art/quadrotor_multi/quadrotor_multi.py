@@ -63,6 +63,11 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Generate All Quadrotors
         self.envs = []
+        if obst_grid_size_random:
+            min_grid_size = obst_grid_size_range[0]
+        else:
+            min_grid_size = grid_size
+
         for i in range(self.num_agents):
             e = QuadrotorSingle(
                 # Quad Parameters
@@ -76,7 +81,7 @@ class QuadrotorEnvMulti(gym.Env):
                 neighbor_obs_type=neighbor_obs_type, num_use_neighbor_obs=self.num_use_neighbor_obs,
                 # Obstacle
                 use_obstacles=use_obstacles, obst_obs_type=obst_obs_type, obst_tof_resolution=obst_tof_resolution,
-                obst_spawn_area=obst_spawn_area, obst_num=int(obst_density * obst_spawn_area[0] * obst_spawn_area[1]),
+                obst_spawn_area=obst_spawn_area, obst_num=int(obst_density * (obst_spawn_area[0] / min_grid_size) * (obst_spawn_area[1] / min_grid_size)),
                 #Controller
                 use_ctbr=use_ctbr, use_sbc=enable_sbc
             )
@@ -144,7 +149,7 @@ class QuadrotorEnvMulti(gym.Env):
             self.curr_quad_col = []
             self.obst_density = obst_density
             self.obst_spawn_area = obst_spawn_area
-            self.num_obstacles = int(obst_density * obst_spawn_area[0] * obst_spawn_area[1])
+            self.num_obstacles = int(obst_density * (obst_spawn_area[0] / min_grid_size) * (obst_spawn_area[1] / min_grid_size))
             self.obst_map = None
             self.obst_pos_arr = None
             self.obst_size = obst_size
