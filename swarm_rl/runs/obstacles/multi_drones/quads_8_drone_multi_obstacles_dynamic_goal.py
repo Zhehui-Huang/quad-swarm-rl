@@ -15,7 +15,7 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     '--quads_obst_spawn_center=False --quads_obst_grid_size_range 0.6 1.0 --quads_obst_grid_size_random=True '
     '--quads_obst_collision_prox_weight=0.01 --quads_obst_collision_prox_min=0.05 --quads_obst_collision_prox_max=0.5 '
     # SBC
-    '--quads_enable_sbc=True --quads_neighbor_range=2.0 ----quads_obst_range=2.0 --quads_coeff_effort=0.05 '
+    '--quads_enable_sbc=True --quads_neighbor_range=2.0 --quads_obst_range=2.0 --quads_coeff_effort=0.05 '
     '--quads_coeff_omega=0.1 '
     # Aux
     '--normalize_input=True --quads_dynamic_goal=True --replay_buffer_sample_prob=0.3 --exploration_loss_coeff=0.001 '
