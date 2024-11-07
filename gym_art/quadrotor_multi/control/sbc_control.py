@@ -176,11 +176,7 @@ class NominalSBC:
 
 class MellingerController(object):
     def __init__(self, dynamics, room_box, num_agents, num_obstacles):
-        jacobian = quadrotor_jacobian(dynamics)
-        self.Jinv = np.linalg.inv(jacobian)
-        self.rot_des = np.eye(3)
-
-        self.sbc_last_safe_acc = np.zeros(3)
+        self.last_sbc_distance_to_boundary = 0.0
         self.step_func = self.step
 
         sbc_radius = 0.05
@@ -195,6 +191,9 @@ class MellingerController(object):
             sbc_obst_aggressive=sbc_obst_aggressive, sbc_room_aggressive=sbc_room_aggressive
         )
 
+    def reset(self):
+        self.last_sbc_distance_to_boundary = 0.0
+
     def step(self, acc_des, observation):
         acc_rl = np.array(acc_des)
 
@@ -206,12 +205,17 @@ class MellingerController(object):
         )
 
         if new_acc is not None:
-            self.sbc_last_safe_acc = np.array(new_acc)
             acc_for_control = np.array(new_acc)
             no_sol_flag = False
         else:
             acc_for_control = np.array(acc_rl)
             no_sol_flag = True
+
+        if sbc_distance_to_boundary is not None:
+            self.last_sbc_distance_to_boundary = sbc_distance_to_boundary
+        else:
+            sbc_distance_to_boundary = self.last_sbc_distance_to_boundary
+
 
         acc_for_control_without_grav = np.array(acc_for_control)
 

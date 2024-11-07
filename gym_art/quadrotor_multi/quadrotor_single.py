@@ -164,13 +164,13 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
 
         "rewraw_main": -cost_pos_raw,
         'rewraw_pos': -cost_pos_raw,
+        'rewraw_vel': -cost_vel_raw,
+        'rewraw_omega': -cost_omega_raw,
         'rewraw_action': -cost_effort_raw,
         'rewraw_crash': -cost_crash_raw,
         "rewraw_orient": -cost_orient_raw,
         "rewraw_spin": -cost_spin_raw,
         "rewraw_lowh": -cost_low_height_raw,
-        'rewraw_omega': -cost_omega_raw,
-        'rewraw_vel': -cost_vel_raw,
         'rewraw_sbc_acc': -cost_sbc_acc_raw,
         'rewraw_sbc_boundary': -cost_sbc_boundary_raw
     }
@@ -338,6 +338,7 @@ class QuadrotorSingle:
         self.observation_space = self.make_observation_space()
 
         # Aux
+        self.use_sbc = use_sbc
         if use_sbc:
             self.sbc_controller = MellingerController(
                 dynamics=self.dynamics, room_box=self.room_box, num_agents=num_agents, num_obstacles=obst_num
@@ -474,14 +475,15 @@ class QuadrotorSingle:
 
         if sbc_data is not None:
             acc_sbc, sbc_distance_to_boundary, no_sol_flag = self.sbc_controller.step_func(
-                acc_des=action, observation=sbc_data
+                acc_des=self.dynamics.acc, observation=sbc_data
             )
             sbc_info = {
-                'acc_sbc': acc_sbc,
-                'sbc_distance_to_boundary': sbc_distance_to_boundary,
+                'acc': acc_sbc,
+                'distance_to_boundary': sbc_distance_to_boundary,
             }
         else:
             sbc_info=None
+            no_sol_flag = False
 
         reward, rew_info = compute_reward_weighted(
             dynamics=self.dynamics, goal=self.goal, action=action, dt=self.dt, time_remain=self.time_remain,
@@ -496,7 +498,7 @@ class QuadrotorSingle:
         sv = self.state_vector(self)
         self.traj_count += int(done)
 
-        return sv, reward, done, {'rewards': rew_info}
+        return sv, reward, done, {'rewards': rew_info, 'no_sol_flag': no_sol_flag}
 
     def resample_dynamics(self):
         """
@@ -530,6 +532,8 @@ class QuadrotorSingle:
         # DYNAMICS RANDOMIZATION AND UPDATE
         if self.dynamics_randomize_every is not None and (self.traj_count + 1) % self.dynamics_randomize_every == 0:
             self.resample_dynamics()
+        if self.use_sbc:
+            self.sbc_controller.reset()
 
         if self.box < 10:
             self.box = self.box * self.box_scale

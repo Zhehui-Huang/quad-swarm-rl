@@ -84,6 +84,7 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
     reward_shaping = copy.deepcopy(DEFAULT_QUAD_REWARD_SHAPING)
 
     reward_shaping['quad_rewards']['omega'] = cfg.quads_coeff_omega
+    reward_shaping['quad_rewards']['effort'] = cfg.quads_coeff_effort
     reward_shaping['quad_rewards']['sbc_acc'] = cfg.quads_coeff_sbc_acc
     reward_shaping['quad_rewards']['sbc_boundary'] = cfg.quads_coeff_sbc_boundary
 

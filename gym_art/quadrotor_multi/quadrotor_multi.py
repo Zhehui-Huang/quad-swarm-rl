@@ -78,7 +78,7 @@ class QuadrotorEnvMulti(gym.Env):
                 use_obstacles=use_obstacles, obst_obs_type=obst_obs_type, obst_tof_resolution=obst_tof_resolution,
                 obst_spawn_area=obst_spawn_area, obst_num=int(obst_density * obst_spawn_area[0] * obst_spawn_area[1]),
                 #Controller
-                use_ctbr=use_ctbr
+                use_ctbr=use_ctbr, use_sbc=enable_sbc
             )
             self.envs.append(e)
 
@@ -99,9 +99,14 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Reward
         self.rew_coeff = dict(
-            pos=1., effort=0.05, action_change=0., crash=1., orient=1., yaw=0., omega=1., rot=0., attitude=0., spin=0.1, vel=0.,
+            # self
+            pos=1., effort=0.05, action_change=0., crash=1., orient=1., yaw=0., omega=1., rot=0., attitude=0.,
+            spin=0.1, vel=0.,
+            # collision
             quadcol_bin=5., quadcol_bin_smooth_max=4., quadcol_bin_obst=5., quads_obst_collision_prox_weight=0.0, 
             quads_obst_collision_prox_max=0.5, quads_obst_collision_prox_min=0.,
+            # SBC
+            sbc_acc=0.0, sbc_boundary=0.0
         )
         rew_coeff_orig = copy.deepcopy(self.rew_coeff)
 
@@ -238,6 +243,7 @@ class QuadrotorEnvMulti(gym.Env):
         self.enable_sbc = enable_sbc
         self.sbc_neighbor_range = sbc_neighbor_range
         self.sbc_obst_range = sbc_obst_range
+        self.no_sol_list = np.zeros(self.num_agents)
 
     def all_dynamics(self):
         return tuple(e.dynamics for e in self.envs)
@@ -480,6 +486,7 @@ class QuadrotorEnvMulti(gym.Env):
         self.reached_goal = [False for _ in range(len(self.envs))]
         self.hard_reached_goal = [False for _ in range(len(self.envs))]
         self.low_h_count = 0
+        self.no_sol_list = np.zeros(self.num_agents)
 
         # Rendering
         if self.quads_render:
@@ -517,8 +524,8 @@ class QuadrotorEnvMulti(gym.Env):
                             'position': self.envs[j].dynamics.pos,
                             'velocity': self.envs[j].dynamics.vel
                         },
-                        'radius': self.envs[j].controller.sbc.radius,
-                        'maximum_linf_acceleration_lower_bound': self.envs[j].controller.sbc.maximum_linf_acceleration,
+                        'radius': self.envs[j].sbc_controller.sbc.radius,
+                        'maximum_linf_acceleration_lower_bound': self.envs[j].sbc_controller.sbc.maximum_linf_acceleration,
                     })
 
                 # Add obstacle descriptions
@@ -555,6 +562,8 @@ class QuadrotorEnvMulti(gym.Env):
             rewards.append(reward)
             dones.append(done)
             infos.append(info)
+
+            self.no_sol_list[i] += float(info['no_sol_flag']) / self.envs[0].ep_len
 
             self.pos[i, :] = self.envs[i].dynamics.pos
         # 1. Calculate collisions: 1) between drones 2) with obstacles 3) with room
@@ -917,6 +926,9 @@ class QuadrotorEnvMulti(gym.Env):
                     # agent_obst_col_rate
                     infos[i]['episode_extra_stats']['metric/agent_obst_col_rate'] = agent_obst_col_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_obst_col_rate'] = agent_obst_col_ratio
+
+                    infos[i]['episode_extra_stats']['metric/sbc_no_sol_rate'] = self.no_sol_list[i]
+                    infos[i]['episode_extra_stats'][f'{scenario_name}/sbc_no_sol_rate'] = self.no_sol_list[i]
 
             obs = self.reset()
             # terminate the episode for all "sub-envs"
