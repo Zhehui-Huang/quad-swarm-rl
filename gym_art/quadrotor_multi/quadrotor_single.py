@@ -104,14 +104,12 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
 
     if dynamic_goal:
         # Goal is given as omega in roll, pitch, yaw axis
-        # cost_omega_raw = abs(dynamics.omega[0] - goal[9]) + abs(dynamics.omega[1]  - goal[10]) + abs(dynamics.omega[2] - goal[11])
+        cost_omega_raw = abs(dynamics.omega[0] - goal[9]) + abs(dynamics.omega[1]  - goal[10]) + abs(dynamics.omega[2] - goal[11])
         # cost_omega = rew_coeff["omega"] * cost_omega_raw
-        cost_omega_raw = 0
         cost_omega = 0
 
-        # cost_vel_raw = abs(dynamics.vel[0] - goal[3]) + abs(dynamics.vel[1] - goal[4]) + abs(dynamics.vel[2] - goal[5])
+        cost_vel_raw = abs(dynamics.vel[0] - goal[3]) + abs(dynamics.vel[1] - goal[4]) + abs(dynamics.vel[2] - goal[5])
         # cost_vel = rew_coeff["vel"] * cost_vel_raw
-        cost_vel_raw = 0
         cost_vel = 0
 
         # Loss for constant uncontrolled rotation around vertical axis

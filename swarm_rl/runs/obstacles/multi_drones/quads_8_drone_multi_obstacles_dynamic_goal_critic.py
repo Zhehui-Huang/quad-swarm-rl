@@ -4,7 +4,7 @@ from swarm_rl.runs.obstacles.multi_drones.quad_multi_obstacle_baseline import QU
 _params = ParamGrid(
     [
         ("seed", [0000, 3333]),
-        ("quads_critic_rnn_size", [64, 128, 256]),
+        ("quads_critic_rnn_size", [64, 256]),
     ]
 )
 
@@ -15,7 +15,7 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     '--quads_obst_collision_prox_weight=0.01 --quads_obst_collision_prox_min=0.05 --quads_obst_collision_prox_max=0.5 '
     # SBC
     '--quads_enable_sbc=True --quads_neighbor_range=2.0 --quads_obst_range=2.0 --quads_coeff_effort=0.05 '
-    '--quads_coeff_omega=0.1 '
+    '--quads_coeff_omega=0.1 --quads_coeff_sbc_acc=0.2 --quads_coeff_sbc_boundary=0.01 '
     # Aux
     '--normalize_input=True --quads_dynamic_goal=True --replay_buffer_sample_prob=0.3 --exploration_loss_coeff=0.001 '
     '--quads_mode=o_random_dynamic_goal '
