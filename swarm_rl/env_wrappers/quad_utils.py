@@ -74,6 +74,7 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         render_mode=cfg.quads_render_mode,
         # SBC
         enable_sbc=cfg.quads_enable_sbc, sbc_neighbor_range=cfg.quads_neighbor_range, sbc_obst_range=cfg.quads_obst_range,
+        sbc_obst_agg=cfg.quads_sbc_obst_agg
     )
 
     if use_replay_buffer:

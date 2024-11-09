@@ -42,7 +42,7 @@ class QuadrotorEnvMulti(gym.Env):
                  render_mode='human',
 
                  # SBC
-                 enable_sbc=False, sbc_neighbor_range=2.0, sbc_obst_range=2.0
+                 enable_sbc=False, sbc_neighbor_range=2.0, sbc_obst_range=2.0, sbc_obst_agg=0.2
                  ):
         super().__init__()
 
@@ -83,7 +83,7 @@ class QuadrotorEnvMulti(gym.Env):
                 use_obstacles=use_obstacles, obst_obs_type=obst_obs_type, obst_tof_resolution=obst_tof_resolution,
                 obst_spawn_area=obst_spawn_area, obst_num=int(obst_density * (obst_spawn_area[0] / min_grid_size) * (obst_spawn_area[1] / min_grid_size)),
                 #Controller
-                use_ctbr=use_ctbr, use_sbc=enable_sbc
+                use_ctbr=use_ctbr, use_sbc=enable_sbc, sbc_obst_agg=sbc_obst_agg
             )
             self.envs.append(e)
 

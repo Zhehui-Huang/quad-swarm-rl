@@ -175,14 +175,14 @@ class NominalSBC:
 
 
 class MellingerController(object):
-    def __init__(self, dynamics, room_box, num_agents, num_obstacles):
+    def __init__(self, dynamics, room_box, num_agents, num_obstacles, sbc_obst_agg):
         self.last_sbc_distance_to_boundary = 0.0
         self.step_func = self.step
 
         sbc_radius = 0.05
         sbc_max_acc = 2.0
         sbc_neighbor_aggressive = 0.2
-        sbc_obst_aggressive = 0.2
+        sbc_obst_aggressive = sbc_obst_agg
         sbc_room_aggressive = 0.2
 
         self.sbc = NominalSBC(

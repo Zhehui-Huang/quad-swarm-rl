@@ -203,7 +203,7 @@ class QuadrotorSingle:
             num_agents=8, neighbor_obs_type='none', num_use_neighbor_obs=0,
             # Obstacle
             use_obstacles=False, obst_obs_type='none', obst_tof_resolution=4, obst_spawn_area=None, obst_num=0,
-            use_ctbr=False, use_sbc=False):
+            use_ctbr=False, use_sbc=False, sbc_obst_agg=0.2):
         np.seterr(under='ignore')
         """
         Args:
@@ -342,7 +342,8 @@ class QuadrotorSingle:
         self.use_sbc = use_sbc
         if use_sbc:
             self.sbc_controller = MellingerController(
-                dynamics=self.dynamics, room_box=self.room_box, num_agents=num_agents, num_obstacles=obst_num
+                dynamics=self.dynamics, room_box=self.room_box, num_agents=num_agents, num_obstacles=obst_num,
+                sbc_obst_agg=sbc_obst_agg
             )
 
         self._seed()
