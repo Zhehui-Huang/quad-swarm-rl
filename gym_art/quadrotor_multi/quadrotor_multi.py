@@ -666,7 +666,7 @@ class QuadrotorEnvMulti(gym.Env):
             for j in range(self.num_agents):
                 if i == j:
                     continue
-                if np.linalg.norm(pos_xy_list[i] - pos_xy_list[j]) < 4.0 * self.quad_arm:
+                if np.linalg.norm(pos_xy_list[i] - pos_xy_list[j]) < 3.0 * self.quad_arm:
                     rew_z_overlap_raw[i] = -1.0
                     rew_z_overlap_raw[j] = -1.0
 
@@ -698,17 +698,22 @@ class QuadrotorEnvMulti(gym.Env):
         for i in range(self.num_agents):
             rewards[i] += rew_collisions[i]
             rewards[i] += rew_proximity[i]
+            # Z overlap
+            rewards[i] += rew_z_overlap[i]
 
+            infos[i]["rewards"]["rewraw_quadcol"] = rew_collisions_raw[i]
             infos[i]["rewards"]["rew_quadcol"] = rew_collisions[i]
             infos[i]["rewards"]["rew_proximity"] = rew_proximity[i]
-            infos[i]["rewards"]["rewraw_quadcol"] = rew_collisions_raw[i]
+            # Z overlap
+            infos[i]["rewards"]["rewraw_z_overlap"] = rew_z_overlap_raw[i]
+            infos[i]["rewards"]["rew_z_overlap"] = rew_z_overlap[i]
 
             if self.use_obstacles:
                 rewards[i] += rew_collisions_obst_quad[i]
                 rewards[i] += rew_obst_proximity[i]
 
-                infos[i]["rewards"]["rew_quadcol_obstacle"] = rew_collisions_obst_quad[i]
                 infos[i]["rewards"]["rewraw_quadcol_obstacle"] = rew_obst_quad_collisions_raw[i]
+                infos[i]["rewards"]["rew_quadcol_obstacle"] = rew_collisions_obst_quad[i]
                 infos[i]["rewards"]["rew_obst_proximity"] = rew_obst_proximity[i]
 
             self.distance_to_goal[i].append(-infos[i]["rewards"]["rewraw_pos"])

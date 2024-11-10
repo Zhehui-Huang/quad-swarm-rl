@@ -11,7 +11,7 @@ def perform_downwash(drones_dyn, dt):
     # Use cylinder to simulate the downwash area
     # The downwash area is a cylinder with radius of 2 arm ~ 10 cm and height of 1.0 m
     xy_downwash = 0.1
-    z_downwash = 5.0
+    z_downwash = 0.7
     # get pos
     dyns_pos = np.array([d.pos for d in drones_dyn])
     # get z_axis
