@@ -716,12 +716,12 @@ class QuadrotorEnvMulti(gym.Env):
                 infos[i]["rewards"]["rew_quadcol_obstacle"] = rew_collisions_obst_quad[i]
                 infos[i]["rewards"]["rew_obst_proximity"] = rew_obst_proximity[i]
 
-            self.distance_to_goal[i].append(-infos[i]["rewards"]["rewraw_pos"])
+            self.distance_to_goal[i].append(np.linalg.norm(self.envs[i].dynamics.pos[:2] - self.scenario.global_final_goals[i][:2]))
             self.distance_to_goal_xy[i].append(np.linalg.norm(obs[i][:2]))
             self.distance_to_goal_z[i].append(obs[i][2])
 
             reach_len_bool = len(self.distance_to_goal[i]) >= 5
-            reach_goal_bool = np.mean(self.distance_to_goal[i][-5:]) / self.envs[0].dt < self.scenario.approch_goal_metric
+            reach_goal_bool = np.mean(self.distance_to_goal[i][-5:]) < self.scenario.approch_goal_metric
 
             hard_reach_len_bool = len(self.distance_to_goal[i]) >= 100
             hard_reach_goal_bool = np.mean(self.distance_to_goal[i][-100:]) / self.envs[0].dt < self.scenario.approch_goal_metric

@@ -13,7 +13,7 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         
     def __init__(self, quads_mode, envs, num_agents, room_dims):
         super().__init__(quads_mode, envs, num_agents, room_dims)
-        self.approch_goal_metric = 0.5
+        self.approch_goal_metric = 1.5
 
         self.goal_generator = [QuadTrajGen(poly_degree=7) for i in range(num_agents)]
         self.start_point = [np.zeros(3) for i in range(num_agents)]
@@ -22,6 +22,7 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         # The velocity of the trajectory is sampled from a normal distribution
         self.vel_mean = 0.35
         self.vel_std = 0.1
+        self.global_final_goals = [np.zeros(3) for i in range(num_agents)]
 
     def step(self):
         tick = self.envs[0].tick
@@ -59,13 +60,15 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         # Find the goal point for all drones
         if (goal_scenario_flag):
             _, global_final_goal = self.generate_pos_v3(pos_area_flag=pos_area_flag)
-        
+            self.global_final_goals = [np.array(global_final_goal) for _ in range(self.num_agents)]
+
         for i in range(self.num_agents):
             # self.start_point[i] = self.generate_pos_obst_map()
             if (goal_scenario_flag):
                 self.start_point[i], _ = self.generate_pos_v3(pos_area_flag=pos_area_flag)
             else:
                 self.start_point[i], final_goal = self.generate_pos_v3(pos_area_flag=pos_area_flag)
+                self.global_final_goals[i] = np.array(final_goal)
             
             initial_state = traj_eval()
             initial_state.set_initial_pos(self.start_point[i])
