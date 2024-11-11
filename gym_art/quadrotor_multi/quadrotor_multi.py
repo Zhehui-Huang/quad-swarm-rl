@@ -670,7 +670,7 @@ class QuadrotorEnvMulti(gym.Env):
                     rew_z_overlap_raw[i] = -1.0
                     rew_z_overlap_raw[j] = -1.0
 
-        rew_z_overlap = self.rew_coeff["quadcol_bin"] * rew_z_overlap_raw
+        rew_z_overlap = 0.1 * rew_z_overlap_raw
 
         # 2) With obstacles
         rew_collisions_obst_quad = np.zeros(self.num_agents)
