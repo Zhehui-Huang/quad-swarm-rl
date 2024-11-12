@@ -382,8 +382,9 @@ class QuadrotorEnvMulti(gym.Env):
             if self.obst_spawn_center is False:
                 # Make sure the minimum gap between any two obstacles are bigger than 0.4 m
                 tmp_minus = (self.grid_size - self.obst_size) / 2 - 0.2
+                tmp_minus = round(tmp_minus, 3)
                 if tmp_minus < 0:
-                    raise ValueError("The grid size is too small for the obstacle size.")
+                    raise ValueError(f"The grid size: {self.grid_size} is too small for the obstacle size. obst_size: {self.obst_size}, tmp_minus: {tmp_minus}")
 
                 obst_center_max_shift = max(tmp_minus, 0.0)
                 x, y = np.random.uniform(low=-obst_center_max_shift, high=obst_center_max_shift, size=(2,))
