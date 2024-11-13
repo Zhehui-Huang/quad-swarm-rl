@@ -671,11 +671,11 @@ class QuadrotorEnvMulti(gym.Env):
             for j in range(self.num_agents):
                 if i == j:
                     continue
-                if np.linalg.norm(pos_xy_list[i] - pos_xy_list[j]) < 3.0 * self.quad_arm:
+                if np.linalg.norm(pos_xy_list[i] - pos_xy_list[j]) < 2.0 * self.quad_arm:
                     rew_z_overlap_raw[i] = -1.0
                     rew_z_overlap_raw[j] = -1.0
 
-        rew_z_overlap = 0.01 * rew_z_overlap_raw
+        rew_z_overlap = 0.0 * rew_z_overlap_raw
 
         # 2) With obstacles
         rew_collisions_obst_quad = np.zeros(self.num_agents)
@@ -729,7 +729,7 @@ class QuadrotorEnvMulti(gym.Env):
             reach_goal_bool = np.mean(self.distance_to_goal[i][-5:]) < self.scenario.approch_goal_metric
 
             hard_reach_len_bool = len(self.distance_to_goal[i]) >= 100
-            hard_reach_goal_bool = np.mean(self.distance_to_goal[i][-100:]) / self.envs[0].dt < self.scenario.approch_goal_metric
+            hard_reach_goal_bool = np.mean(self.distance_to_goal[i][-100:]) < self.scenario.approch_goal_metric
 
             if not self.reached_goal[i] and reach_len_bool and reach_goal_bool:
                 self.reached_goal[i] = True
