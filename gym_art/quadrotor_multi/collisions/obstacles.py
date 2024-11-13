@@ -30,8 +30,8 @@ def perform_collision_with_obstacle(drone_dyn, obstacle_pos, obstacle_size):
 
     vel_noise = np.zeros(3)
     for i in range(3):
-        cons_rand_val = np.random.normal(loc=0, scale=0.8, size=3)
-        tmp_vel_noise = cons_rand_val + np.random.normal(loc=0, scale=0.15, size=3)
+        cons_rand_val = np.random.normal(loc=0, scale=0.1, size=3)
+        tmp_vel_noise = cons_rand_val + np.random.normal(loc=0, scale=0.05, size=3)
         if np.dot(new_vel + tmp_vel_noise, collision_norm) > 0:
             vel_noise = tmp_vel_noise
             break
@@ -46,5 +46,5 @@ def perform_collision_with_obstacle(drone_dyn, obstacle_pos, obstacle_size):
                                         vel_shift=new_vel - drone_dyn.vel + vel_noise)
 
     # Random forces for omega
-    new_omega = compute_new_omega(magn_scale=10.0)
+    new_omega = compute_new_omega(magn_scale=1.0)
     drone_dyn.omega += new_omega

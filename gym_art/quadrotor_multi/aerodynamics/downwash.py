@@ -11,7 +11,7 @@ def perform_downwash(drones_dyn, dt):
     # Use cylinder to simulate the downwash area
     # The downwash area is a cylinder with radius of 2 arm ~ 10 cm and height of 1.0 m
     xy_downwash = 0.1
-    z_downwash = 0.7
+    z_downwash = 5.0
     # get pos
     dyns_pos = np.array([d.pos for d in drones_dyn])
     # get z_axis
@@ -27,12 +27,12 @@ def perform_downwash(drones_dyn, dt):
         # acceleration func: a(x) = f(x) / 34 = -10 / 17 * x + 7 / 17
         # x in [0, 0.7], a(x) in [0.0, 0.41]
         # acc = (1 / 17) * (-10 * neighbor_pos_dist + 7) + np.random.uniform(low=-0.03, high=0.03)
-        acc = (6 / 17) * (-10 * neighbor_pos_dist + 7) + np.random.uniform(low=-0.1, high=0.1)
+        acc = (6 / 17) * (-10 * neighbor_pos_dist + 7) + np.random.uniform(low=-0.2, high=0.2)
         acc = np.maximum(1e-6, acc)
 
         # omega downwash given neighbor_pos_dist
         # 0.3 * (x - 1)^2 + random(-0.01, 0.01)
-        omega_downwash = 0.3 * (neighbor_pos_dist - 1) ** 2 + np.random.uniform(low=-0.01, high=0.01)
+        omega_downwash = 0.3 * (neighbor_pos_dist - 1) ** 2 + np.random.uniform(low=-0.1, high=0.1)
         omega_downwash = np.maximum(1e-6, omega_downwash)
 
         rel_dists_z = np.dot(neighbor_pos, z_axis)

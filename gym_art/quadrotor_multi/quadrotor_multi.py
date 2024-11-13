@@ -675,7 +675,7 @@ class QuadrotorEnvMulti(gym.Env):
                     rew_z_overlap_raw[i] = -1.0
                     rew_z_overlap_raw[j] = -1.0
 
-        rew_z_overlap = 0.1 * rew_z_overlap_raw
+        rew_z_overlap = 0.01 * rew_z_overlap_raw
 
         # 2) With obstacles
         rew_collisions_obst_quad = np.zeros(self.num_agents)
@@ -721,9 +721,9 @@ class QuadrotorEnvMulti(gym.Env):
                 infos[i]["rewards"]["rew_quadcol_obstacle"] = rew_collisions_obst_quad[i]
                 infos[i]["rewards"]["rew_obst_proximity"] = rew_obst_proximity[i]
 
-            self.distance_to_goal[i].append(np.linalg.norm(self.envs[i].dynamics.pos[:2] - self.scenario.global_final_goals[i][:2]))
-            self.distance_to_goal_xy[i].append(np.linalg.norm(obs[i][:2]))
-            self.distance_to_goal_z[i].append(obs[i][2])
+            self.distance_to_goal[i].append(np.linalg.norm(self.envs[i].dynamics.pos - self.scenario.global_final_goals[i]))
+            self.distance_to_goal_xy[i].append(np.linalg.norm(self.envs[i].dynamics.pos[:2] - self.scenario.global_final_goals[i][:2]))
+            self.distance_to_goal_z[i].append(np.linalg.norm(self.envs[i].dynamics.pos[2] - self.scenario.global_final_goals[i][2]))
 
             reach_len_bool = len(self.distance_to_goal[i]) >= 5
             reach_goal_bool = np.mean(self.distance_to_goal[i][-5:]) < self.scenario.approch_goal_metric
@@ -852,12 +852,9 @@ class QuadrotorEnvMulti(gym.Env):
                         'num_collisions_final_5_s': self.collisions_final_5s,
                         f'{scenario_name}/num_collisions_final_5_s': self.collisions_final_5s,
 
-                        'distance_to_goal_1s': (1.0 / self.envs[0].dt) * np.mean(
-                            self.distance_to_goal[i, int(-1 * self.control_freq):]),
-                        'distance_to_goal_3s': (1.0 / self.envs[0].dt) * np.mean(
-                            self.distance_to_goal[i, int(-3 * self.control_freq):]),
-                        'distance_to_goal_5s': (1.0 / self.envs[0].dt) * np.mean(
-                            self.distance_to_goal[i, int(-5 * self.control_freq):]),
+                        'distance_to_goal_1s': np.mean(self.distance_to_goal[i, int(-1 * self.control_freq):]),
+                        'distance_to_goal_3s': np.mean(self.distance_to_goal[i, int(-3 * self.control_freq):]),
+                        'distance_to_goal_5s': np.mean(self.distance_to_goal[i, int(-5 * self.control_freq):]),
 
                         'xy_distance_to_goal_1s': np.mean(self.distance_to_goal_xy[i, int(-1 * self.control_freq):]),
                         'z_distance_to_goal_1s': np.mean(self.distance_to_goal_z[i, int(-1 * self.control_freq):]),
@@ -865,18 +862,12 @@ class QuadrotorEnvMulti(gym.Env):
                         'num_low_h': self.low_h_count / self.num_agents,
                         f'{scenario_name}/num_low_h': self.low_h_count / self.num_agents,
 
-                        f'{scenario_name}/distance_to_goal_1s': (1.0 / self.envs[0].dt) * np.mean(
-                            self.distance_to_goal[i, int(-1 * self.control_freq):]),
-                        f'{scenario_name}/distance_to_goal_3s': (1.0 / self.envs[0].dt) * np.mean(
-                            self.distance_to_goal[i, int(-3 * self.control_freq):]),
-                        f'{scenario_name}/distance_to_goal_5s': (1.0 / self.envs[0].dt) * np.mean(
-                            self.distance_to_goal[i, int(-5 * self.control_freq):]),
+                        f'{scenario_name}/distance_to_goal_1s': np.mean(self.distance_to_goal[i, int(-1 * self.control_freq):]),
+                        f'{scenario_name}/distance_to_goal_3s': np.mean(self.distance_to_goal[i, int(-3 * self.control_freq):]),
+                        f'{scenario_name}/distance_to_goal_5s': np.mean(self.distance_to_goal[i, int(-5 * self.control_freq):]),
 
-                        f'{scenario_name}/xy_distance_to_goal_1s': np.mean(
-                            self.distance_to_goal_xy[i, int(-1 * self.control_freq):]),
-                        f'{scenario_name}/z_distance_to_goal_1s': np.mean(
-                            self.distance_to_goal_z[i, int(-1 * self.control_freq):]),
-
+                        f'{scenario_name}/xy_distance_to_goal_1s': np.mean(self.distance_to_goal_xy[i, int(-1 * self.control_freq):]),
+                        f'{scenario_name}/z_distance_to_goal_1s': np.mean(self.distance_to_goal_z[i, int(-1 * self.control_freq):]),
                     }
 
                     if self.use_obstacles:
