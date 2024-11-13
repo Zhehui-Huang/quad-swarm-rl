@@ -4,7 +4,7 @@ from swarm_rl.runs.obstacles.multi_drones.quad_multi_obstacle_baseline import QU
 _params = ParamGrid(
     [
         ("seed", [0000, 3333]),
-        ("quads_obst_density", [0.2, 0.4, 0.6, 0.8, 1.0]),
+        ("quads_obst_density", [0.2, 0.4, 0.6, 0.8]),
     ]
 )
 
