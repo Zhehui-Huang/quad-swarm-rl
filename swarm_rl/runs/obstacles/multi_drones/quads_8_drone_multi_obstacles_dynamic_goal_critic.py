@@ -5,6 +5,7 @@ _params = ParamGrid(
     [
         ("seed", [0000, 3333]),
         ("quads_obst_density", [0.2, 0.4, 0.6, 0.8]),
+        ("quads_coeff_omega", [0.1, 0.5, 1.0]),
     ]
 )
 

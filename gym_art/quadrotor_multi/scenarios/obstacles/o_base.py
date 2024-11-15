@@ -1,6 +1,8 @@
 import numpy as np
 
 from gym_art.quadrotor_multi.scenarios.base import QuadrotorScenario
+from gym_art.quadrotor_multi.scenarios.obstacles.o_utils import get_goals_given_formation
+from gym_art.quadrotor_multi.scenarios.utils import get_goal_by_formation
 
 
 class Scenario_o_base(QuadrotorScenario):
@@ -81,31 +83,72 @@ class Scenario_o_base(QuadrotorScenario):
 
         return np.array(generated_points)
 
-    def generate_pos_v3(self, pos_area_flag):
-        pos_shift = 1
+    def generate_start_goal_pos(self, pos_area_flag, goal_scenario_flag, formation, num_agents):
+        pos_shift = 0.8
+        step_size = 0.4
 
         room_width, room_depth = self.room_dims[0], self.room_dims[1]
         obst_area_width, obst_area_depth = self.obst_spawn_area[0], self.obst_spawn_area[1]
 
-        pos_x_range = [-room_width / 2 + pos_shift, room_width / 2 - pos_shift]
+        pos_x_min = -room_width / 2 + pos_shift
+        pos_x_max = room_width / 2 - pos_shift
+        pos_x_grids = np.arange(pos_x_min, pos_x_max + step_size, step_size)
+
+        pos_y1_min = -room_depth / 2 + pos_shift
+        pos_y1_max = -obst_area_depth / 2 - pos_shift
+
+        pos_y2_min = obst_area_depth / 2 + pos_shift
+        pos_y2_max = room_depth / 2 - pos_shift
+
         if pos_area_flag == 0:
-            pos_y_range = [-room_depth / 2 + pos_shift, -obst_area_depth/ 2 - pos_shift]
-            goal_y_range = [obst_area_depth / 2 + pos_shift, room_depth / 2 - pos_shift]
+            pos_y_grids = np.arange(pos_y1_min, pos_y1_max + 0.1, step_size)
+            goal_y_grids = np.arange(pos_y2_min, pos_y2_max + 0.1, step_size)
         else:
-            pos_y_range = [obst_area_depth / 2 + pos_shift, room_depth / 2 - pos_shift]
-            goal_y_range = [-room_depth / 2 + pos_shift, -obst_area_depth / 2 - pos_shift]
+            pos_y_grids = np.arange(pos_y2_min, pos_y2_max + 0.1, step_size)
+            goal_y_grids = np.arange(pos_y1_min, pos_y1_max + 0.1, step_size)
 
-        start_pos = [
-            np.random.uniform(low=pos_x_range[0], high=pos_x_range[1]),
-            np.random.uniform(low=pos_y_range[0], high=pos_y_range[1]),
-            np.random.uniform(low=0.5, high=1.0)
-        ]
+        start_pos = []
+        noise_size = step_size / 2
 
-        goal_pos = [
-            np.random.uniform(low=pos_x_range[0], high=pos_x_range[1]),
-            np.random.uniform(low=goal_y_range[0], high=goal_y_range[1]),
-            0.65
-        ]
+        all_pairs = np.array(np.meshgrid(pos_x_grids, pos_y_grids)).T.reshape(-1, 2)
+        selected_pairs = all_pairs[np.random.choice(all_pairs.shape[0], num_agents, replace=False)]
+        noise = np.random.uniform(low=-noise_size, high=noise_size, size=selected_pairs.shape)
+        noisy_selected_pairs = selected_pairs + noise
+        z_list_start = np.random.uniform(low=0.5, high=1.0, size=num_agents)
+
+        for i in range(num_agents):
+            pos_x, pos_y = noisy_selected_pairs[i]
+            pos_item = np.array([pos_x, pos_y, z_list_start[i]])
+            start_pos.append(pos_item)
+
+        start_pos = np.array(start_pos)
+
+        if goal_scenario_flag:
+            # same goal
+            pos_x = np.random.choice(pos_x_grids)
+            pos_x = np.clip(a=pos_x, a_min=-room_width / 2 + pos_shift, a_max=room_width / 2 - pos_shift)
+            pos_x += np.random.uniform(low=-0.2, high=0.2)
+
+            pos_y = np.random.choice(goal_y_grids)
+            pos_y = np.clip(a=pos_y, a_min=-room_depth / 2 + pos_shift * 1.5, a_max=room_depth / 2 - pos_shift * 1.5)
+            pos_y += np.random.uniform(low=-0.2, high=0.2)
+
+            formation_center = np.array([pos_x, pos_y, 0.65])
+            goal_pos_list = get_goals_given_formation(
+                formation=formation, dist_range=[0.3, 0.5], formation_center=formation_center, num_agents=num_agents
+            )
+        else:
+            goal_all_pairs = np.array(np.meshgrid(pos_x_grids, goal_y_grids)).T.reshape(-1, 2)
+            goal_selected_pairs = goal_all_pairs[np.random.choice(goal_all_pairs.shape[0], num_agents, replace=False)]
+            goal_noise = np.random.uniform(low=-noise_size, high=noise_size, size=selected_pairs.shape)
+            goal_pos_list = goal_selected_pairs + goal_noise
+
+        goal_pos = []
+        for goal_item in goal_pos_list:
+            x, y = goal_item[0], goal_item[1]
+            x = np.clip(a=x, a_min=-room_width / 2 + 0.5, a_max=room_width / 2 - 0.5)
+            y = np.clip(a=y, a_min=-room_depth / 2 + 0.5, a_max=room_depth / 2 - 0.5)
+            goal_pos.append(np.array([x, y, 0.65]))
 
         return np.array(start_pos), np.array(goal_pos)
 
