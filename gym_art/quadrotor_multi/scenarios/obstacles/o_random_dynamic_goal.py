@@ -48,7 +48,8 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
 
     def reset(self, obst_map=None, cell_centers=None, sim2real_scenario=False):
         # 0: Use different goal; 1: Use same goal
-        self.goal_scenario_flag = np.random.choice([0, 1])
+        # self.goal_scenario_flag = np.random.choice([0, 1])
+        self.goal_scenario_flag = 0
         # 0: From -x to x; 1: From x to -x
         pos_area_flag = np.random.choice([0, 1])
 

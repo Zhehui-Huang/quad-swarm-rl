@@ -827,11 +827,10 @@ class QuadrotorEnvMulti(gym.Env):
         # 7. DONES
         if any(dones):
             scenario_name = self.scenario.name()[9:]
-            if self.scenario.goal_scenario_flag:
-                if self.scenario.goal_scenario_flag == 0:
-                    scenario_name += '_diff'
-                else:
-                    scenario_name += '_same'
+            if self.scenario.goal_scenario_flag == 0:
+                scenario_name += '_diff'
+            else:
+                scenario_name += '_same'
 
 
             for i in range(len(infos)):
