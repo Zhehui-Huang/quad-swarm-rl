@@ -19,6 +19,7 @@ References:
 """
 import copy
 
+import numpy as np
 from gymnasium.utils import seeding
 from gymnasium import spaces
 
@@ -44,9 +45,10 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
 
     if sbc_info is not None:
         # sbc acc
-        acc_rl = np.array(dynamics.acc)
-        acc_sbc = sbc_info['acc']
-        cost_sbc_acc_raw = np.linalg.norm(acc_sbc - acc_rl)
+        # acc_rl = np.array(dynamics.acc)
+        # acc_sbc = sbc_info['acc']
+        thrusts_sbc = sbc_info['thrusts']
+        cost_sbc_acc_raw = np.linalg.norm(np.array(thrusts_sbc) - np.array(action))
 
         # sbc boundary
         cost_sbc_boundary_raw = sbc_info['distance_to_boundary']
@@ -468,6 +470,11 @@ class QuadrotorSingle:
         return [seed]
 
     def _step(self, action, sbc_data):
+        if sbc_data is not None:
+            tmp_dynamics = copy.deepcopy(self.dynamics)
+        else:
+            tmp_dynamics = None
+
         self.actions[1] = copy.deepcopy(self.actions[0])
         self.actions[0] = copy.deepcopy(action)
 
@@ -476,12 +483,13 @@ class QuadrotorSingle:
         self.time_remain = self.ep_len - self.tick
 
         if sbc_data is not None:
-            acc_sbc, sbc_distance_to_boundary, no_sol_flag = self.sbc_controller.step_func(
-                acc_des=self.dynamics.acc, observation=sbc_data
+            sbc_thrusts, acc_sbc, sbc_distance_to_boundary, no_sol_flag = self.sbc_controller.step_func(
+                dynamics=tmp_dynamics, dt=self.dt, acc_des=self.dynamics.acc, observation=sbc_data
             )
             sbc_info = {
                 'acc': acc_sbc,
                 'distance_to_boundary': sbc_distance_to_boundary,
+                'thrusts': sbc_thrusts
             }
         else:
             sbc_info=None

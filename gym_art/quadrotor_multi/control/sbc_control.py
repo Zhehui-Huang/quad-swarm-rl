@@ -176,6 +176,16 @@ class NominalSBC:
 
 class MellingerController(object):
     def __init__(self, dynamics, room_box, num_agents, num_obstacles, sbc_obst_agg):
+        # Initial
+        jacobian = quadrotor_jacobian(dynamics)
+        self.Jinv = np.linalg.inv(jacobian)
+        self.action = None
+        # self.kp_p, self.kd_p = 4.5, 3.5
+        self.kp_a, self.kd_a = 200.0, 50.0
+        self.rot_des = np.eye(3)
+
+
+        # SBC
         self.last_sbc_distance_to_boundary = 0.0
         self.step_func = self.step
 
@@ -194,7 +204,7 @@ class MellingerController(object):
     def reset(self):
         self.last_sbc_distance_to_boundary = 0.0
 
-    def step(self, acc_des, observation):
+    def step(self, dynamics, dt, acc_des, observation):
         acc_rl = np.array(acc_des)
 
         new_acc, sbc_distance_to_boundary = self.sbc.plan(
@@ -216,7 +226,36 @@ class MellingerController(object):
         else:
             sbc_distance_to_boundary = self.last_sbc_distance_to_boundary
 
-
+        # Question: Why do we need to do this???
         acc_for_control_without_grav = np.array(acc_for_control)
+        acc_for_control_with_grav = acc_for_control + np.array([0, 0, GRAV])
+        xc_des = self.rot_des[:, 0]
 
-        return acc_for_control_without_grav, sbc_distance_to_boundary, no_sol_flag
+        # see Mellinger and Kumar 2011
+        zb_des, _ = normalize(acc_for_control_with_grav)
+        yb_des, _ = normalize(cross(zb_des, xc_des))
+        xb_des = cross(yb_des, zb_des)
+        R_des = np.column_stack((xb_des, yb_des, zb_des))
+        R = dynamics.rot
+
+        def vee(R):
+            return np.array([R[2, 1], R[0, 2], R[1, 0]])
+
+        e_R = 0.5 * vee(np.matmul(R_des.T, R) - np.matmul(R.T, R_des))
+        e_R[2] *= 0.2  # slow down yaw dynamics
+        e_w = dynamics.omega
+
+        dw_des = -self.kp_a * e_R - self.kd_a * e_w
+        # we want this acceleration, but we can only accelerate in one direction!
+        thrust_mag = np.dot(acc_for_control_with_grav, R[:, 2])
+
+        des = np.append(thrust_mag, dw_des)
+
+        thrusts = np.matmul(self.Jinv, des)
+        thrusts[thrusts < 0] = 0
+        thrusts[thrusts > 1] = 1
+
+        dynamics.step(thrusts, dt)
+        self.action = thrusts.copy()
+
+        return self.action, acc_for_control_without_grav, sbc_distance_to_boundary, no_sol_flag
