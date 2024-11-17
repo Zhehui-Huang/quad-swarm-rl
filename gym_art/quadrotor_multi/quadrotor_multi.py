@@ -854,6 +854,7 @@ class QuadrotorEnvMulti(gym.Env):
                         'num_collisions_with_ceiling': self.collisions_ceiling_per_episode,
                         'num_collisions_after_settle': self.collisions_after_settle,
                         f'{scenario_name}/num_collisions': self.collisions_after_settle,
+                        f'{scenario_name}/z_overlap': rew_z_overlap_raw[i],
 
                         'num_collisions_final_5_s': self.collisions_final_5s,
                         f'{scenario_name}/num_collisions_final_5_s': self.collisions_final_5s,
