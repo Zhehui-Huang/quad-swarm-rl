@@ -48,8 +48,8 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
 
     def reset(self, obst_map=None, cell_centers=None, sim2real_scenario=False):
         # 0: Use different goal; 1: Use same goal
-        # self.goal_scenario_flag = np.random.choice([0, 1])
-        self.goal_scenario_flag = 0
+        self.goal_scenario_flag = np.random.choice([0, 1])
+        # self.goal_scenario_flag = 1
         # 0: From -x to x; 1: From x to -x
         pos_area_flag = np.random.choice([0, 1])
 
@@ -76,7 +76,7 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
             traj_speed = np.clip(traj_speed, a_min=0.2, a_max=0.4)
             traj_duration = dist / traj_speed
             # Clip in case the traj takes too long to finish.
-            traj_duration = np.clip(traj_duration, a_min=0, a_max=self.envs[0].ep_time)
+            traj_duration = np.clip(traj_duration, a_min=0.5, a_max=self.envs[0].ep_time - 0.5)
 
             goal_yaw = 0
             # Generate trajectory with random time from (0, ep_time)

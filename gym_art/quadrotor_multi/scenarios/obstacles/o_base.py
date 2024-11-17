@@ -84,8 +84,8 @@ class Scenario_o_base(QuadrotorScenario):
         return np.array(generated_points)
 
     def generate_start_goal_pos(self, pos_area_flag, goal_scenario_flag, formation, num_agents):
-        pos_shift = 0.8
-        step_size = 0.4
+        pos_shift = 1.0
+        step_size = 0.5
 
         room_width, room_depth = self.room_dims[0], self.room_dims[1]
         obst_area_width, obst_area_depth = self.obst_spawn_area[0], self.obst_spawn_area[1]
@@ -108,7 +108,7 @@ class Scenario_o_base(QuadrotorScenario):
             goal_y_grids = np.arange(pos_y1_min, pos_y1_max + 0.1, step_size)
 
         start_pos = []
-        noise_size = step_size / 2
+        noise_size = 0.1
 
         all_pairs = np.array(np.meshgrid(pos_x_grids, pos_y_grids)).T.reshape(-1, 2)
         selected_pairs = all_pairs[np.random.choice(all_pairs.shape[0], num_agents, replace=False)]
@@ -130,12 +130,12 @@ class Scenario_o_base(QuadrotorScenario):
             pos_x += np.random.uniform(low=-0.2, high=0.2)
 
             pos_y = np.random.choice(goal_y_grids)
-            pos_y = np.clip(a=pos_y, a_min=-room_depth / 2 + pos_shift * 1.5, a_max=room_depth / 2 - pos_shift * 1.5)
+            pos_y = np.clip(a=pos_y, a_min=-room_depth / 2 + pos_shift, a_max=room_depth / 2 - pos_shift)
             pos_y += np.random.uniform(low=-0.2, high=0.2)
 
             formation_center = np.array([pos_x, pos_y, 0.65])
             goal_pos_list = get_goals_given_formation(
-                formation=formation, dist_range=[0.3, 0.5], formation_center=formation_center, num_agents=num_agents
+                formation=formation, dist_range=[0.0, 0.0], formation_center=formation_center, num_agents=num_agents
             )
         else:
             goal_all_pairs = np.array(np.meshgrid(pos_x_grids, goal_y_grids)).T.reshape(-1, 2)
