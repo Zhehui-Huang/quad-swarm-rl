@@ -75,9 +75,9 @@ def add_quadrotors_env_args(env, parser):
                    help='Spawn range of grid size')
 
     p.add_argument('--quads_obst_density_random', default=False, type=str2bool, help='Enable obstacle density randomization or not')
-    p.add_argument('--quads_obst_density_min', default=0.05, type=float,
+    p.add_argument('--quads_obst_density_min', default=0.2, type=float,
                    help='The minimum of obstacle density when enabling domain randomization')
-    p.add_argument('--quads_obst_density_max', default=0.2, type=float,
+    p.add_argument('--quads_obst_density_max', default=0.8, type=float,
                    help='The maximum of obstacle density when enabling domain randomization')
     p.add_argument('--quads_obst_size_random', default=False, type=str2bool, help='Enable obstacle size randomization or not')
     p.add_argument('--quads_obst_size_min', default=0.3, type=float,

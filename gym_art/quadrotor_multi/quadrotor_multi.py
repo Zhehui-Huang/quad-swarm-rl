@@ -24,25 +24,22 @@ class QuadrotorEnvMulti(gym.Env):
     def __init__(self, num_agents, ep_time, rew_coeff, obs_repr, obs_rel_rot, dynamic_goal,
                  # Neighbor
                  neighbor_visible_num, neighbor_obs_type, collision_hitbox_radius, collision_falloff_radius,
-
                  # Obstacle
                  use_obstacles, obst_density, obst_size, obst_spawn_area, obst_obs_type, obst_noise, grid_size,
                  obst_tof_resolution, obst_spawn_center, obst_grid_size_random, obst_grid_size_range,
-
                  # Aerodynamics, Numba Speed Up, Scenarios, Room, Replay Buffer, Rendering
                  use_downwash, z_overlap, use_numba, quads_mode, sim2real_scenario, room_dims, use_replay_buffer, quads_view_mode,
                  quads_render,
-
                  # Quadrotor Specific (Do Not Change)
                  dynamics_params, raw_control, raw_control_zero_middle,
                  dynamics_randomize_every, dynamics_change, dyn_sampler_1,
-                 sense_noise, init_random_state, use_ctbr, 
-                 
+                 sense_noise, init_random_state, use_ctbr,
                  # Rendering
                  render_mode='human',
-
                  # SBC
-                 enable_sbc=False, sbc_neighbor_range=2.0, sbc_obst_range=2.0, sbc_obst_agg=0.2
+                 enable_sbc=False, sbc_neighbor_range=2.0, sbc_obst_range=2.0, sbc_obst_agg=0.2,
+                 # Randomization
+                 obst_density_random=False, obst_density_min=0.2, obst_density_max=0.8
                  ):
         super().__init__()
 
@@ -68,6 +65,11 @@ class QuadrotorEnvMulti(gym.Env):
         else:
             min_grid_size = grid_size
 
+        if obst_density_random:
+            max_obst_num = int(obst_density_max * (obst_spawn_area[0] / min_grid_size) * (obst_spawn_area[1] / min_grid_size))
+        else:
+            max_obst_num = int(obst_density * (obst_spawn_area[0] / min_grid_size) * (obst_spawn_area[1] / min_grid_size))
+
         for i in range(self.num_agents):
             e = QuadrotorSingle(
                 # Quad Parameters
@@ -81,7 +83,7 @@ class QuadrotorEnvMulti(gym.Env):
                 neighbor_obs_type=neighbor_obs_type, num_use_neighbor_obs=self.num_use_neighbor_obs,
                 # Obstacle
                 use_obstacles=use_obstacles, obst_obs_type=obst_obs_type, obst_tof_resolution=obst_tof_resolution,
-                obst_spawn_area=obst_spawn_area, obst_num=int(obst_density * (obst_spawn_area[0] / min_grid_size) * (obst_spawn_area[1] / min_grid_size)),
+                obst_spawn_area=obst_spawn_area, obst_num=max_obst_num,
                 #Controller
                 use_ctbr=use_ctbr, use_sbc=enable_sbc, sbc_obst_agg=sbc_obst_agg
             )
@@ -149,7 +151,7 @@ class QuadrotorEnvMulti(gym.Env):
             self.curr_quad_col = []
             self.obst_density = obst_density
             self.obst_spawn_area = obst_spawn_area
-            self.num_obstacles = int(obst_density * (obst_spawn_area[0] / min_grid_size) * (obst_spawn_area[1] / min_grid_size))
+            self.num_obstacles = max_obst_num
             self.obst_map = None
             self.obst_pos_arr = None
             self.obst_size = obst_size
@@ -249,6 +251,11 @@ class QuadrotorEnvMulti(gym.Env):
         self.sbc_neighbor_range = sbc_neighbor_range
         self.sbc_obst_range = sbc_obst_range
         self.no_sol_list = np.zeros(self.num_agents)
+
+        # Randomization
+        self.obst_density_random = obst_density_random
+        self.obst_density_min = obst_density_min
+        self.obst_density_max = obst_density_max
 
     def all_dynamics(self):
         return tuple(e.dynamics for e in self.envs)
@@ -421,6 +428,8 @@ class QuadrotorEnvMulti(gym.Env):
             if self.obst_grid_size_random:
                 tmp_grid_size = np.random.uniform(low=self.obst_grid_size_range[0] - 0.049, high=self.obst_grid_size_range[1] + 0.049)
                 self.grid_size = np.round(tmp_grid_size, 1)
+            if self.obst_density_random:
+                self.obst_density = round(np.random.choice(np.arange(self.obst_density_min, self.obst_density_max, 0.1)), 1)
 
             self.obst_map, self.obst_pos_arr, cell_centers = self.obst_generation_given_density()
             if self.sim2real_scenario is not None:
@@ -858,11 +867,17 @@ class QuadrotorEnvMulti(gym.Env):
                         f'{scenario_name}/num_low_h': self.low_h_count / self.num_agents,
 
                         f'{scenario_name}/distance_to_goal_1s': np.mean(self.distance_to_goal[i, int(-1 * self.control_freq):]),
+                        f'{scenario_name}/{self.obst_density}/distance_to_goal_1s': np.mean(self.distance_to_goal[i, int(-1 * self.control_freq):]),
+
+
                         f'{scenario_name}/distance_to_goal_3s': np.mean(self.distance_to_goal[i, int(-3 * self.control_freq):]),
                         f'{scenario_name}/distance_to_goal_5s': np.mean(self.distance_to_goal[i, int(-5 * self.control_freq):]),
 
                         f'{scenario_name}/xy_distance_to_goal_1s': np.mean(self.distance_to_goal_xy[i, int(-1 * self.control_freq):]),
+                        f'{scenario_name}/{self.obst_density}/xy_distance_to_goal_1s': np.mean(
+                            self.distance_to_goal_xy[i, int(-1 * self.control_freq):]),
                         f'{scenario_name}/z_distance_to_goal_1s': np.mean(self.distance_to_goal_z[i, int(-1 * self.control_freq):]),
+                        f'{scenario_name}/{self.obst_density}/z_distance_to_goal_1s': np.mean(self.distance_to_goal_z[i, int(-1 * self.control_freq):]),
                     }
 
                     if self.use_obstacles:
@@ -902,25 +917,33 @@ class QuadrotorEnvMulti(gym.Env):
                     # agent_success_rate
                     infos[i]['episode_extra_stats']['metric/agent_success_rate'] = agent_success_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_rate'] = agent_success_ratio
+                    infos[i]['episode_extra_stats'][f'{scenario_name}/{self.obst_density}/agent_success_rate'] = agent_success_ratio
 
                     infos[i]['episode_extra_stats']['metric/agent_hard_success_rate'] = agent_hard_success_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_hard_success_rate'] = agent_hard_success_ratio
+                    infos[i]['episode_extra_stats'][f'{scenario_name}/{self.obst_density}/agent_hard_success_rate'] = agent_hard_success_ratio
 
                     # agent_deadlock_rate
                     infos[i]['episode_extra_stats']['metric/agent_deadlock_rate'] = agent_deadlock_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_deadlock_rate'] = agent_deadlock_ratio
+                    infos[i]['episode_extra_stats'][f'{scenario_name}/{self.obst_density}/agent_deadlock_rate'] = agent_deadlock_ratio
                     # agent_col_rate
                     infos[i]['episode_extra_stats']['metric/agent_col_rate'] = agent_col_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_col_rate'] = agent_col_ratio
+                    infos[i]['episode_extra_stats'][f'{scenario_name}/{self.obst_density}/agent_col_rate'] = agent_col_ratio
+
                     # agent_neighbor_col_rate
                     infos[i]['episode_extra_stats']['metric/agent_neighbor_col_rate'] = agent_neighbor_col_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_neighbor_col_rate'] = agent_neighbor_col_ratio
+                    infos[i]['episode_extra_stats'][f'{scenario_name}/{self.obst_density}/agent_neighbor_col_rate'] = agent_neighbor_col_ratio
                     # agent_obst_col_rate
                     infos[i]['episode_extra_stats']['metric/agent_obst_col_rate'] = agent_obst_col_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_obst_col_rate'] = agent_obst_col_ratio
+                    infos[i]['episode_extra_stats'][f'{scenario_name}/{self.obst_density}/agent_obst_col_rate'] = agent_obst_col_ratio
 
                     infos[i]['episode_extra_stats']['metric/sbc_no_sol_rate'] = self.no_sol_list[i]
                     infos[i]['episode_extra_stats'][f'{scenario_name}/sbc_no_sol_rate'] = self.no_sol_list[i]
+                    infos[i]['episode_extra_stats'][f'{scenario_name}/{self.obst_density}/sbc_no_sol_rate'] = self.no_sol_list[i]
 
                     infos[i]['episode_extra_stats']['metric/distance_to_goal_1s'] = np.mean(self.distance_to_goal[i, int(-1 * self.control_freq):])
                     infos[i]['episode_extra_stats']['metric/distance_to_goal_3s'] = np.mean(self.distance_to_goal[i, int(-3 * self.control_freq):])
