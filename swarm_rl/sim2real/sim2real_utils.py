@@ -32,7 +32,6 @@ def load_sf_model(model_dir, model_type):
     args.quads_encoder_type = 'attention' if (model_type == 'attention' or model_type == 'multi_obst_attn') else 'corl'
     args.quads_sim2real = True
     args.quads_use_ctbr = False
-    args.quads_domain_random = False
     args.quads_obst_density_random = False
     args.quads_obst_density_min = 0
     args.quads_obst_density_max = 0

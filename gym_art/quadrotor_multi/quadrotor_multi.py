@@ -410,13 +410,8 @@ class QuadrotorEnvMulti(gym.Env):
                 num_obstacles=self.num_obstacles, scene_index=i
             ))
 
-    def reset(self, obst_density=None, obst_size=None):
+    def reset(self):
         obs, rewards, dones, infos = [], [], [], []
-
-        if obst_density:
-            self.obst_density = obst_density
-        if obst_size:
-            self.obst_size = obst_size
 
         # Scenario reset
         if self.use_obstacles:
