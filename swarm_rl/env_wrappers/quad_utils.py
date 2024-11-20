@@ -77,7 +77,8 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         sbc_obst_agg=cfg.quads_sbc_obst_agg,
         # Randomization
         obst_density_random=cfg.quads_obst_density_random, obst_density_min=cfg.quads_obst_density_min,
-        obst_density_max=cfg.quads_obst_density_max
+        obst_density_max=cfg.quads_obst_density_max, obst_size_random=cfg.quads_obst_size_random,
+        obst_size_min=cfg.quads_obst_size_min, obst_size_max=cfg.quads_obst_size_max
     )
 
     if use_replay_buffer:
