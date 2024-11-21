@@ -433,7 +433,7 @@ class QuadrotorEnvMulti(gym.Env):
                 tmp_grid_size = np.random.uniform(low=self.obst_grid_size_range[0] - 0.049, high=self.obst_grid_size_range[1] + 0.049)
                 self.grid_size = np.round(tmp_grid_size, 1)
             if self.obst_density_random:
-                self.obst_density = round(np.random.choice(np.arange(self.obst_density_min, self.obst_density_max, 0.1)), 1)
+                self.obst_density = round(np.random.choice(np.arange(self.obst_density_min, self.obst_density_max + 0.01, 0.1)), 1)
             if self.obst_size_random:
                 tmp_obst_size_max = self.grid_size - self.min_gap_threshold
                 if tmp_obst_size_max < self.obst_size_min:
