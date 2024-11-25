@@ -26,7 +26,8 @@ class QuadrotorEnvMulti(gym.Env):
                  neighbor_visible_num, neighbor_obs_type, collision_hitbox_radius, collision_falloff_radius,
                  # Obstacle
                  use_obstacles, obst_density, obst_size, obst_spawn_area, obst_obs_type, obst_noise, grid_size,
-                 obst_tof_resolution, obst_spawn_center, obst_grid_size_random, obst_grid_size_range,
+                 obst_tof_resolution, obst_spawn_center, obst_grid_size_random, obst_grid_size_range, critic_rnn_size,
+                 obst_critic_obs,
                  # Aerodynamics, Numba Speed Up, Scenarios, Room, Replay Buffer, Rendering
                  use_downwash, z_overlap, use_numba, quads_mode, sim2real_scenario, room_dims, use_replay_buffer, quads_view_mode,
                  quads_render,
@@ -84,7 +85,8 @@ class QuadrotorEnvMulti(gym.Env):
                 neighbor_obs_type=neighbor_obs_type, num_use_neighbor_obs=self.num_use_neighbor_obs,
                 # Obstacle
                 use_obstacles=use_obstacles, obst_obs_type=obst_obs_type, obst_tof_resolution=obst_tof_resolution,
-                obst_spawn_area=obst_spawn_area, obst_num=max_obst_num,
+                obst_spawn_area=obst_spawn_area, obst_num=max_obst_num, critic_rnn_size=critic_rnn_size,
+                obst_critic_obs=obst_critic_obs,
                 #Controller
                 use_ctbr=use_ctbr, use_sbc=enable_sbc, sbc_obst_agg=sbc_obst_agg
             )
@@ -160,6 +162,9 @@ class QuadrotorEnvMulti(gym.Env):
             self.obst_spawn_center = obst_spawn_center
             self.obst_grid_size_random = obst_grid_size_random
             self.obst_grid_size_range = obst_grid_size_range
+            self.critic_rnn_size = critic_rnn_size
+            self.obst_critic_obs = obst_critic_obs
+
 
             assert self.obst_size <= self.grid_size
             self.obst_tof_resolution = obst_tof_resolution
@@ -445,7 +450,8 @@ class QuadrotorEnvMulti(gym.Env):
 
             self.obstacles = MultiObstacles(
                 obstacle_size=self.obst_size, quad_radius=self.quad_arm, obs_type=self.obst_obs_type,
-                obst_noise=self.obst_noise, obst_tof_resolution=self.obst_tof_resolution
+                obst_noise=self.obst_noise, obst_tof_resolution=self.obst_tof_resolution,
+                critic_rnn_size=self.critic_rnn_size, obst_critic_obs=self.obst_critic_obs,
             )
 
             self.obst_map, self.obst_pos_arr, cell_centers = self.obst_generation_given_density()

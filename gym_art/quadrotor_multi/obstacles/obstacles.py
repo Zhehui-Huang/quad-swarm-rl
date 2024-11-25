@@ -5,7 +5,8 @@ from gym_art.quadrotor_multi.obstacles.utils import get_surround_sdfs, collision
 
 
 class MultiObstacles:
-    def __init__(self, obstacle_size=1.0, quad_radius=0.046, obs_type='octomap', obst_noise=0.0, obst_tof_resolution=4):
+    def __init__(self, obstacle_size=1.0, quad_radius=0.046, obs_type='octomap', obst_noise=0.0, obst_tof_resolution=4,
+                 critic_rnn_size=-1, obst_critic_obs='octomap'):
         self.size = obstacle_size
         self.obstacle_radius = obstacle_size / 2.0
         self.quad_radius = quad_radius
@@ -25,6 +26,12 @@ class MultiObstacles:
         else:
             self.sample_freq = 7 # 14 Hz, conservative but better than 6 being 16hz.
 
+        self.use_obst_octomap_critic = False
+        obst_obs_diff_ac = (obs_type != obst_critic_obs)
+        if critic_rnn_size > 0 and obst_obs_diff_ac:
+            if obst_critic_obs == 'octomap':
+                self.use_obst_octomap_critic = True
+
     def reset(self, obs, quads_pos, pos_arr, quads_rots=None):
         self.pos_arr = copy.deepcopy(np.array(pos_arr))
 
@@ -42,7 +49,15 @@ class MultiObstacles:
             self.prev = np.copy(quads_sdf_obs)
             self.tick = 0
 
-        obs = np.concatenate((obs, quads_sdf_obs), axis=1)
+        if self.use_obst_octomap_critic:
+            quads_obs_critic = 100 * np.ones((len(quads_pos), 9))
+            quads_obs_critic = get_surround_sdfs(
+                quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2], quads_sdf_obs=quads_obs_critic,
+                obst_radius=self.obstacle_radius, resolution=self.resolution
+            )
+            obs = np.concatenate((obs, quads_sdf_obs, quads_obs_critic), axis=1)
+        else:
+            obs = np.concatenate((obs, quads_sdf_obs), axis=1)
 
         return obs
 
@@ -65,7 +80,15 @@ class MultiObstacles:
             else:
                 quads_sdf_obs = np.copy(self.prev)
 
-        obs = np.concatenate((obs, quads_sdf_obs), axis=1)
+        if self.use_obst_octomap_critic:
+            quads_obs_critic = 100 * np.ones((len(quads_pos), 9))
+            quads_obs_critic = get_surround_sdfs(
+                quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2], quads_sdf_obs=quads_obs_critic,
+                obst_radius=self.obstacle_radius, resolution=self.resolution
+            )
+            obs = np.concatenate((obs, quads_sdf_obs, quads_obs_critic), axis=1)
+        else:
+            obs = np.concatenate((obs, quads_sdf_obs), axis=1)
 
         return obs
 

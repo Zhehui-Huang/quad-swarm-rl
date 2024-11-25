@@ -205,6 +205,8 @@ class QuadrotorSingle:
             num_agents=8, neighbor_obs_type='none', num_use_neighbor_obs=0,
             # Obstacle
             use_obstacles=False, obst_obs_type='none', obst_tof_resolution=4, obst_spawn_area=None, obst_num=0,
+            critic_rnn_size=-1, obst_critic_obs='ToFs',
+            # Controller
             use_ctbr=False, use_sbc=False, sbc_obst_agg=0.2):
         np.seterr(under='ignore')
         """
@@ -239,6 +241,9 @@ class QuadrotorSingle:
                 are loaded. Otherwise one can provide specific params.
             excite: [bool] change the set point at the fixed frequency to perturb the quad
         """
+        # Preset
+        self.critic_rnn_size = critic_rnn_size
+        self.obst_critic_obs = obst_critic_obs
         # Numba Speed Up
         self.use_numba = use_numba
         self.obs_rel_rot = obs_rel_rot
@@ -445,6 +450,13 @@ class QuadrotorSingle:
                     obs_comps = obs_comps + ["ToFs_4"]
                 else:
                     obs_comps = obs_comps + ["ToFs_8"]
+
+        obst_obs_diff_ac = (self.obst_obs_type != self.obst_critic_obs)
+        if self.critic_rnn_size > 0 and obst_obs_diff_ac:
+            if self.obst_critic_obs == 'octomap':
+                obs_comps = obs_comps + ["octomap"]
+            else:
+                raise ValueError("ERROR: QuadEnv: unknown critic observation type: " + self.obst_critic_obs)
 
         print("Observation components:", obs_comps)
         obs_low, obs_high = [], []

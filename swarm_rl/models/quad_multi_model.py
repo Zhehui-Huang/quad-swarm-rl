@@ -123,10 +123,14 @@ class QuadNeighborhoodEncoderMlp(QuadNeighborhoodEncoder):
 
 
 class QuadMultiHeadAttentionEncoder(Encoder):
-    def __init__(self, cfg, obs_space):
+    def __init__(self, cfg, obs_space, is_critic):
         super().__init__(cfg)
 
         # Internal params
+        self.is_critic = is_critic
+        self.use_separate_critic = (cfg.quads_critic_rnn_size > 0)
+        self.obst_obs_diff_ac = (cfg.quads_obstacle_obs_type != cfg.quads_critic_obs)
+
         if cfg.quads_obs_repr in QUADS_OBS_REPR:
             self.self_obs_dim = QUADS_OBS_REPR[cfg.quads_obs_repr]
         else:
@@ -162,17 +166,55 @@ class QuadMultiHeadAttentionEncoder(Encoder):
             fc_layer(fc_encoder_layer, fc_encoder_layer),
             nonlinearity(cfg)
         )
-        if cfg.quads_obstacle_obs_type == 'ToFs':
-            if cfg.quads_obstacle_tof_resolution == 4:
-                self.obstacle_obs_dim = QUADS_OBSTACLE_OBS_TYPE['ToFs_4']
-            elif cfg.quads_obstacle_tof_resolution == 8:
-                self.obstacle_obs_dim = QUADS_OBSTACLE_OBS_TYPE['ToFs_8']
+
+        if self.use_separate_critic:
+            if cfg.quads_obstacle_obs_type == 'ToFs':
+                if cfg.quads_obstacle_tof_resolution == 4:
+                    self.obst_actor_obs_dim = QUADS_OBSTACLE_OBS_TYPE['ToFs_4']
+                elif cfg.quads_obstacle_tof_resolution == 8:
+                    self.obst_actor_obs_dim = QUADS_OBSTACLE_OBS_TYPE['ToFs_8']
+                else:
+                    raise NotImplementedError(f'Obstacle TOF resolution {cfg.quads_obstacle_tof_resolution} not supported!')
+            elif cfg.quads_obstacle_obs_type == 'octomap':
+                self.obst_actor_obs_dim = QUADS_OBSTACLE_OBS_TYPE['octomap']
             else:
-                raise NotImplementedError(f'Obstacle TOF resolution {cfg.quads_obstacle_tof_resolution} not supported!')
-        elif cfg.quads_obstacle_obs_type == 'octomap':
-            self.obstacle_obs_dim = QUADS_OBSTACLE_OBS_TYPE['octomap']
+                raise NotImplementedError(f'Obstacle observation type {cfg.quads_obstacle_obs_type} not supported!')
+
+            if self.obst_obs_diff_ac:
+                if cfg.quads_critic_obs == 'ToFs':
+                    if cfg.quads_obstacle_tof_resolution == 4:
+                        self.obst_critic_obs_dim = QUADS_OBSTACLE_OBS_TYPE['ToFs_4']
+                    elif cfg.quads_obstacle_tof_resolution == 8:
+                        self.obst_critic_obs_dim = QUADS_OBSTACLE_OBS_TYPE['ToFs_8']
+                    else:
+                        raise NotImplementedError(
+                            f'Obstacle TOF resolution {cfg.quads_obstacle_tof_resolution} not supported!')
+                elif cfg.quads_critic_obs == 'octomap':
+                    self.obst_critic_obs_dim = QUADS_OBSTACLE_OBS_TYPE['octomap']
+                else:
+                    raise NotImplementedError(f'Obstacle observation type {cfg.quads_obstacle_obs_type} not supported!')
+            else:
+                self.obst_critic_obs_dim = self.obst_actor_obs_dim
+
+            if self.is_critic:
+                self.obstacle_obs_dim = self.obst_critic_obs_dim
+            else:
+                self.obstacle_obs_dim = self.obst_actor_obs_dim
+
         else:
-            raise NotImplementedError(f'Obstacle observation type {cfg.quads_obstacle_obs_type} not supported!')
+            if cfg.quads_obstacle_obs_type == 'ToFs':
+                if cfg.quads_obstacle_tof_resolution == 4:
+                    self.obstacle_obs_dim = QUADS_OBSTACLE_OBS_TYPE['ToFs_4']
+                elif cfg.quads_obstacle_tof_resolution == 8:
+                    self.obstacle_obs_dim = QUADS_OBSTACLE_OBS_TYPE['ToFs_8']
+                else:
+                    raise NotImplementedError(f'Obstacle TOF resolution {cfg.quads_obstacle_tof_resolution} not supported!')
+            elif cfg.quads_obstacle_obs_type == 'octomap':
+                self.obstacle_obs_dim = QUADS_OBSTACLE_OBS_TYPE['octomap']
+            else:
+                raise NotImplementedError(f'Obstacle observation type {cfg.quads_obstacle_obs_type} not supported!')
+
+            self.obst_critic_obs_dim = self.obst_actor_obs_dim
 
         self.obstacle_embed_layer = nn.Sequential(
             fc_layer(self.obstacle_obs_dim, fc_encoder_layer),
@@ -193,7 +235,17 @@ class QuadMultiHeadAttentionEncoder(Encoder):
         batch_size = obs.shape[0]
         obs_self = obs[:, :self.self_obs_dim]
         obs_neighbor = obs[:, self.self_obs_dim: self.self_obs_dim + self.all_neighbor_obs_dim]
-        obs_obstacle = obs[:, self.self_obs_dim + self.all_neighbor_obs_dim:]
+
+        if self.use_separate_critic and self.obst_obs_diff_ac:
+            if self.is_critic:
+                obs_critic_obst_start = self.self_obs_dim + self.all_neighbor_obs_dim + self.obst_actor_obs_dim
+                obs_obstacle = obs[:, obs_critic_obst_start:]
+            else:
+                obs_actor_obst_start = self.self_obs_dim + self.all_neighbor_obs_dim
+                obs_actor_obst_end = obs_actor_obst_start + self.obst_actor_obs_dim
+                obs_obstacle = obs[:, obs_actor_obst_start: obs_actor_obst_end]
+        else:
+            obs_obstacle = obs[:, self.self_obs_dim + self.all_neighbor_obs_dim:]
 
         self_embed = self.self_embed_layer(obs_self)
         neighbor_embed = self.neighbor_embed_layer(obs_neighbor)
@@ -215,9 +267,12 @@ class QuadMultiHeadAttentionEncoder(Encoder):
 
 
 class QuadSingleHeadAttentionEncoder_Sim2Real(QuadMultiHeadAttentionEncoder):
-    def __init__(self, cfg, obs_space):
-        super().__init__(cfg, obs_space)
+    def __init__(self, cfg, obs_space, is_critic):
+        super().__init__(cfg, obs_space, is_critic)
 
+        self.is_critic = is_critic
+        self.use_separate_critic = (cfg.quads_critic_rnn_size > 0)
+        self.obst_obs_diff_ac = (cfg.quads_obstacle_obs_type != cfg.quads_critic_obs)
         # Internal params
         if cfg.quads_obs_repr in QUADS_OBS_REPR:
             self.self_obs_dim = QUADS_OBS_REPR[cfg.quads_obs_repr]
@@ -246,13 +301,56 @@ class QuadSingleHeadAttentionEncoder_Sim2Real(QuadMultiHeadAttentionEncoder):
             fc_layer(self.all_neighbor_obs_dim, fc_encoder_layer),
             nonlinearity(cfg),
         )
-        if cfg.quads_obstacle_obs_type == 'ToFs':
-            if cfg.quads_obstacle_tof_resolution == 4:
-                self.obstacle_obs_dim = QUADS_OBSTACLE_OBS_TYPE['ToFs_4']
-            elif cfg.quads_obstacle_tof_resolution == 8:
-                self.obstacle_obs_dim = QUADS_OBSTACLE_OBS_TYPE['ToFs_8']
+
+        if self.use_separate_critic:
+            if cfg.quads_obstacle_obs_type == 'ToFs':
+                if cfg.quads_obstacle_tof_resolution == 4:
+                    self.obst_actor_obs_dim = QUADS_OBSTACLE_OBS_TYPE['ToFs_4']
+                elif cfg.quads_obstacle_tof_resolution == 8:
+                    self.obst_actor_obs_dim = QUADS_OBSTACLE_OBS_TYPE['ToFs_8']
+                else:
+                    raise NotImplementedError(f'Obstacle TOF resolution {cfg.quads_obstacle_tof_resolution} not supported!')
+            elif cfg.quads_obstacle_obs_type == 'octomap':
+                self.obst_actor_obs_dim = QUADS_OBSTACLE_OBS_TYPE['octomap']
             else:
-                raise NotImplementedError(f'Obstacle TOF resolution {cfg.quads_obstacle_tof_resolution} not supported!')
+                raise NotImplementedError(f'Obstacle observation type {cfg.quads_obstacle_obs_type} not supported!')
+
+            if self.obst_obs_diff_ac:
+                if cfg.quads_critic_obs == 'ToFs':
+                    if cfg.quads_obstacle_tof_resolution == 4:
+                        self.obst_critic_obs_dim = QUADS_OBSTACLE_OBS_TYPE['ToFs_4']
+                    elif cfg.quads_obstacle_tof_resolution == 8:
+                        self.obst_critic_obs_dim = QUADS_OBSTACLE_OBS_TYPE['ToFs_8']
+                    else:
+                        raise NotImplementedError(
+                            f'Obstacle TOF resolution {cfg.quads_obstacle_tof_resolution} not supported!')
+                elif cfg.quads_critic_obs == 'octomap':
+                    self.obst_critic_obs_dim = QUADS_OBSTACLE_OBS_TYPE['octomap']
+                else:
+                    raise NotImplementedError(f'Obstacle observation type {cfg.quads_obstacle_obs_type} not supported!')
+            else:
+                self.obst_critic_obs_dim = self.obst_actor_obs_dim
+
+            if self.is_critic:
+                self.obstacle_obs_dim = self.obst_critic_obs_dim
+            else:
+                self.obstacle_obs_dim = self.obst_actor_obs_dim
+
+        else:
+            if cfg.quads_obstacle_obs_type == 'ToFs':
+                if cfg.quads_obstacle_tof_resolution == 4:
+                    self.obstacle_obs_dim = QUADS_OBSTACLE_OBS_TYPE['ToFs_4']
+                elif cfg.quads_obstacle_tof_resolution == 8:
+                    self.obstacle_obs_dim = QUADS_OBSTACLE_OBS_TYPE['ToFs_8']
+                else:
+                    raise NotImplementedError(f'Obstacle TOF resolution {cfg.quads_obstacle_tof_resolution} not supported!')
+            elif cfg.quads_obstacle_obs_type == 'octomap':
+                self.obstacle_obs_dim = QUADS_OBSTACLE_OBS_TYPE['octomap']
+            else:
+                raise NotImplementedError(f'Obstacle observation type {cfg.quads_obstacle_obs_type} not supported!')
+
+            self.obst_critic_obs_dim = self.obst_actor_obs_dim
+
         self.obstacle_embed_layer = nn.Sequential(
             fc_layer(self.obstacle_obs_dim, fc_encoder_layer),
             nonlinearity(cfg),
@@ -263,9 +361,41 @@ class QuadSingleHeadAttentionEncoder_Sim2Real(QuadMultiHeadAttentionEncoder):
 
         # MLP Layer
         self.encoder_output_size = cfg.rnn_size
-        self.feed_forward = nn.Sequential(fc_layer(3 * cfg.rnn_size, self.encoder_output_size),
-                                          nn.Tanh())
+        self.feed_forward = nn.Sequential(
+            fc_layer(3 * cfg.rnn_size, self.encoder_output_size), nn.Tanh()
+        )
 
+    def forward(self, obs_dict):
+        obs = obs_dict['obs']
+        batch_size = obs.shape[0]
+        obs_self = obs[:, :self.self_obs_dim]
+        obs_neighbor = obs[:, self.self_obs_dim: self.self_obs_dim + self.all_neighbor_obs_dim]
+
+        if self.use_separate_critic and self.obst_obs_diff_ac:
+            if self.is_critic:
+                obs_critic_obst_start = self.self_obs_dim + self.all_neighbor_obs_dim + self.obst_actor_obs_dim
+                obs_obstacle = obs[:, obs_critic_obst_start:]
+            else:
+                obs_actor_obst_start = self.self_obs_dim + self.all_neighbor_obs_dim
+                obs_actor_obst_end = obs_actor_obst_start + self.obst_actor_obs_dim
+                obs_obstacle = obs[:, obs_actor_obst_start: obs_actor_obst_end]
+        else:
+            obs_obstacle = obs[:, self.self_obs_dim + self.all_neighbor_obs_dim:]
+
+        self_embed = self.self_embed_layer(obs_self)
+        neighbor_embed = self.neighbor_embed_layer(obs_neighbor)
+        obstacle_embed = self.obstacle_embed_layer(obs_obstacle)
+        neighbor_embed = neighbor_embed.view(batch_size, 1, -1)
+        obstacle_embed = obstacle_embed.view(batch_size, 1, -1)
+        attn_embed = torch.cat((neighbor_embed, obstacle_embed), dim=1)
+
+        attn_embed, attn_score = self.attention_layer(attn_embed, attn_embed, attn_embed)
+        attn_embed = attn_embed.view(batch_size, -1)
+
+        embeddings = torch.cat((self_embed, attn_embed), dim=1)
+        out = self.feed_forward(embeddings)
+
+        return out
 
 class QuadMultiEncoder(Encoder):
     # Mean embedding encoder based on the DeepRL for Swarms Paper
@@ -388,12 +518,12 @@ class QuadMultiEncoder(Encoder):
 def make_quadmulti_encoder(cfg, obs_space) -> Encoder:
     if cfg.quads_encoder_type == "attention":
         if cfg.is_critic:
-            model = QuadMultiHeadAttentionEncoder(cfg, obs_space)
+            model = QuadMultiHeadAttentionEncoder(cfg=cfg, obs_space=obs_space, is_critic=True)
         else:
             if cfg.quads_sim2real:
-                model = QuadSingleHeadAttentionEncoder_Sim2Real(cfg, obs_space)
+                model = QuadSingleHeadAttentionEncoder_Sim2Real(cfg=cfg, obs_space=obs_space, is_critic=False)
             else:
-                model = QuadMultiHeadAttentionEncoder(cfg, obs_space)
+                model = QuadMultiHeadAttentionEncoder(cfg=cfg, obs_space=obs_space, is_critic=False)
     else:
         model = QuadMultiEncoder(cfg, obs_space)
     return model

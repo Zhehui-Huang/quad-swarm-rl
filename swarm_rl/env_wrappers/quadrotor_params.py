@@ -160,3 +160,4 @@ def add_quadrotors_env_args(env, parser):
 
     # Critic
     p.add_argument('--quads_critic_rnn_size', default=-1, type=int, help='We have critic, which is different from actor')
+    p.add_argument('--quads_critic_obs', default='octomap', type=str, choices=['octomap', 'ToFs'], help='Critic observations')
