@@ -3,7 +3,8 @@ from swarm_rl.runs.obstacles.multi_drones.quad_multi_obstacle_baseline import QU
 
 _params = ParamGrid(
     [
-        ("seed", [0000, 3333]),
+        ("seed", [0000, 1111, 2222, 3333]),
+        ("quads_critic_obs", ['octomap', 'ToFs']),
     ]
 )
 
@@ -25,11 +26,11 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     '--normalize_input=True --quads_dynamic_goal=True --exploration_loss_coeff=0.001 '
     '--quads_mode=o_random_dynamic_goal '
     # W & B
-    '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones --wandb_group=random_obst_density_size_v1'
+    '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones --wandb_group=diff_critic_obs_v1'
 )
 
 _experiment = Experiment(
-    "random_obst_density_size_v1",
+    "diff_critic_obs_v1",
     OBSTACLE_MODEL_CLI,
     _params.generate_params(randomize=False),
 )
