@@ -855,10 +855,15 @@ class QuadrotorEnvMulti(gym.Env):
         if any(dones):
             scenario_name = self.scenario.name()[9:]
             if self.scenario.goal_scenario_flag == 0:
-                scenario_name += '_diff'
+                if self.scenario.in_obst_area == 0:
+                    scenario_name += '_diff_out_obst'
+                else:
+                    scenario_name += '_diff_in_obst'
             else:
-                scenario_name += '_same'
-
+                if self.scenario.in_obst_area == 0:
+                    scenario_name += '_same_out_obst'
+                else:
+                    scenario_name += '_same_in_obst'
 
             for i in range(len(infos)):
                 if self.saved_in_replay_buffer:

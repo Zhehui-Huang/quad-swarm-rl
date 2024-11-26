@@ -28,6 +28,7 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
 
         # Aux
         self.goal_scenario_flag = 0
+        self.in_obst_area = 0
 
     def step(self):
         sim_steps = self.envs[0].sim_steps
@@ -61,14 +62,14 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         else:
             formation = None
 
-        scenario_flag = np.random.choice([0, 1])
-        if scenario_flag:
-            self.start_point, self.global_final_goals = self.generate_start_goal_pos(
+        self.in_obst_area = np.random.choice([0, 1])
+        if self.in_obst_area:
+            self.start_point, self.global_final_goals = self.generate_start_goal_pos_v2(
                 pos_area_flag=pos_area_flag, goal_scenario_flag=self.goal_scenario_flag, formation=formation,
                 num_agents=self.num_agents
             )
         else:
-            self.start_point, self.global_final_goals = self.generate_start_goal_pos_v2(
+            self.start_point, self.global_final_goals = self.generate_start_goal_pos(
                 pos_area_flag=pos_area_flag, goal_scenario_flag=self.goal_scenario_flag, formation=formation,
                 num_agents=self.num_agents
             )
