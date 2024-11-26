@@ -73,8 +73,7 @@ def is_surface_in_cylinder_view(vector, q_pos, o_pos, o_radius, fov_angle):
     return (None, None)
 
 @njit
-def get_ToFs_depthmap(quad_poses, obst_poses, obst_radius, scan_max_dist,
-                              quad_rotations, scan_angle_arr, num_rays, fov_angle, obst_noise):
+def get_ToFs_depthmap(quad_poses, obst_poses, obst_radius, scan_max_dist, quad_rotations, scan_angle_arr, num_rays, fov_angle, obst_noise):
         """
             quad_poses:     quadrotor positions, only with xy pos
             obst_poses:     obstacle positions, only with xy pos
@@ -92,7 +91,7 @@ def get_ToFs_depthmap(quad_poses, obst_poses, obst_radius, scan_max_dist,
             q_pos_xy = quad_poses[q_id][:2]
             q_yaw = np.arctan2(quad_rotations[q_id][1, 0], quad_rotations[q_id][0, 0])
             base_rad = q_yaw
-            walls = np.array([[5, q_pos_xy[1]], [-5, q_pos_xy[1]], [q_pos_xy[0], 5], [q_pos_xy[1], -5]])
+            # walls = np.array([[5, q_pos_xy[1]], [-5, q_pos_xy[1]], [q_pos_xy[0], 5], [q_pos_xy[1], -5]])
             for ray_id, rad_shift in enumerate(scan_angle_arr):
                 for sec_id, sec in enumerate(modifications):
                     cur_rad = base_rad + rad_shift + sec
@@ -121,8 +120,8 @@ def get_ToFs_depthmap(quad_poses, obst_poses, obst_radius, scan_max_dist,
                         if distance is not None:
                             quads_obs[q_id][ray_id*num_rays+sec_id] = min(quads_obs[q_id][ray_id*num_rays+sec_id], distance-sensor_offset)
 
-        quads_obs = quads_obs + np.random.normal(loc=0, scale=obst_noise, size=quads_obs.shape)
-        quads_obs = np.clip(quads_obs, a_min=0.0, a_max=scan_max_dist)
+        # quads_obs = quads_obs + np.random.uniform(-obst_noise * quads_obs, obst_noise * quads_obs, size=quads_obs.shape)
+        # quads_obs = np.clip(quads_obs, a_min=0.0, a_max=scan_max_dist)
         return quads_obs
 
 @njit
