@@ -14,10 +14,10 @@ QUADS_MODE_LIST_SINGLE = ['static_same_goal', 'static_diff_goal',  # static form
                           'dynamic_same_goal',  # dynamic formations
                           ]
 
-QUADS_MODE_LIST_OBSTACLES = ['o_random', 'o_static_same_goal']
-QUADS_MODE_LIST_OBSTACLES_TEST = ['o_random', 'o_static_same_goal',
-                                  'o_swap_goals',
-                                  'o_ep_rand_bezier', 'o_dynamic_same_goal']
+QUADS_MODE_LIST_OBSTACLES = ['o_random_dynamic_goal']
+QUADS_MODE_LIST_OBSTACLES_TEST = [
+    'o_random', 'o_static_same_goal', 'o_swap_goals', 'o_ep_rand_bezier', 'o_dynamic_same_goal'
+]
 
 QUADS_MODE_LIST_OBSTACLES_SINGLE = ['o_random']
 

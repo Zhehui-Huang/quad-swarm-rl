@@ -54,7 +54,7 @@ class Scenario_mix(QuadrotorScenario):
             raise NotImplementedError("Unknown!")
 
         self.scenario = None
-        self.approch_goal_metric = 0.5
+        self.approch_goal_metric = 0.2 * self.num_agents
 
         self.spawn_points = None
 
@@ -74,7 +74,7 @@ class Scenario_mix(QuadrotorScenario):
         self.formation_size = self.scenario.formation_size
         return
 
-    def reset(self, obst_map=None, cell_centers=None):
+    def reset(self, obst_map=None, cell_centers=None, sim2real_scenario=False):
         mode_index = np.random.randint(low=0, high=len(self.quads_mode_list))
         mode = self.quads_mode_list[mode_index]
 
@@ -83,7 +83,7 @@ class Scenario_mix(QuadrotorScenario):
                                         room_dims=self.room_dims)
 
         if obst_map is not None:
-            self.scenario.reset(obst_map, cell_centers)
+            self.scenario.reset(obst_map=obst_map, cell_centers=cell_centers, sim2real_scenario=sim2real_scenario)
         else:
             self.scenario.reset()
 
