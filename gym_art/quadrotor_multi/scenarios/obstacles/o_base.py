@@ -266,8 +266,8 @@ class Scenario_o_base(QuadrotorScenario):
         length, width = self.obstacle_map.shape[0], self.obstacle_map.shape[1]
         obstacle_map = self.obstacle_map
         # Check if the given position is out of bounds
-        # if row < 0 or row >= width or col < 0 or col >= length:
-        #     raise ValueError("Invalid position")
+        if row < 0 or row >= width or col < 0 or col >= length:
+            raise ValueError("Invalid position")
 
         # Check if the surrounding cells are all 0s
         check_pos_x, check_pos_y = [], []

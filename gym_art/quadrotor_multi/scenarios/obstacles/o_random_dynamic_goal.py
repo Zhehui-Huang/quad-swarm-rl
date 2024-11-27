@@ -78,7 +78,7 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
 
             if self.goal_scenario_flag:
                 # same goal
-                self.global_final_goals = self.generate_goal_same(check_surroundings=True)
+                self.global_final_goals = self.generate_goal_same(check_surroundings=False)
             else:
                 self.global_final_goals = self.generate_goal_diff(num_agents=self.num_agents)
         else:
