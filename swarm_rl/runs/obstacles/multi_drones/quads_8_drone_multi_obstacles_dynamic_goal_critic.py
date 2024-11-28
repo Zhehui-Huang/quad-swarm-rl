@@ -5,7 +5,6 @@ _params = ParamGrid(
     [
         ("seed", [0000, 3333]),
         ("quads_critic_obs", ['octomap', 'ToFs']),
-        ("quads_obst_density", [0.4, 0.8]),
     ]
 )
 
@@ -14,7 +13,7 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     ' --quads_room_dims 8.0 8.0 5.0 --quads_obst_spawn_area 6 4 --quads_obst_grid_size=0.7 '
     '--quads_obst_spawn_center=False --quads_obst_grid_size_range 0.7 1.0 --quads_obst_grid_size_random=True '
     '--quads_obst_collision_prox_weight=0.01 --quads_obst_collision_prox_min=0.05 --quads_obst_collision_prox_max=0.5 '
-    '--replay_buffer_sample_prob=0.75 '
+    '--replay_buffer_sample_prob=0.75 --quads_obst_density=0.2 '
     # Random
     '--quads_obst_density_random=False --quads_obst_density_min=0.2 --quads_obst_density_max=0.3 '
     '--quads_obst_size_random=True --quads_obst_size_min=0.28 --quads_obst_size_max=0.32 '
@@ -27,11 +26,11 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     '--normalize_input=True --quads_dynamic_goal=True --exploration_loss_coeff=0.001 '
     '--quads_mode=o_random_dynamic_goal '
     # W & B
-    '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones --wandb_group=search_density_v1'
+    '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones --wandb_group=scenario_modify_v3'
 )
 
 _experiment = Experiment(
-    "search_density_v1",
+    "scenario_modify_v3",
     OBSTACLE_MODEL_CLI,
     _params.generate_params(randomize=False),
 )
