@@ -64,10 +64,10 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
 
         self.in_obst_area = np.random.choice([0, 1])
         if self.in_obst_area:
-            self.start_point, _ = self.generate_start_goal_pos_v2(
-                pos_area_flag=pos_area_flag, goal_scenario_flag=self.goal_scenario_flag, formation=formation,
-                num_agents=self.num_agents
-            )
+            # self.start_point, _ = self.generate_start_goal_pos_v2(
+            #     pos_area_flag=pos_area_flag, goal_scenario_flag=self.goal_scenario_flag, formation=formation,
+            #     num_agents=self.num_agents
+            # )
             self.obstacle_map = obst_map
             self.cell_centers = cell_centers
             if self.obstacle_map is None:
@@ -75,6 +75,8 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
             else:
                 obst_map_locs = np.where(self.obstacle_map == 0)
                 self.free_space = list(zip(*obst_map_locs))
+
+            self.start_point = self.generate_goal_diff(num_agents=self.num_agents)
 
             if self.goal_scenario_flag:
                 # same goal
