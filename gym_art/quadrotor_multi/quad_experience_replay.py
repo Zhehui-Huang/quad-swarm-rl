@@ -84,7 +84,15 @@ class ExperienceReplayWrapper(gym.Wrapper):
         Save a checkpoint every X steps so that we may load it later if a collision was found. This is NOT the same as the buffer
         Checkpoints are added to the buffer only if we find a collision and want to replay that event later on
         """
-        self.episode_checkpoints.append((deepcopy(self.env), deepcopy(obs)))
+        copied_env = deepcopy(self.env)
+        copied_obs = deepcopy(obs)
+
+        fixed_ep_len = int(self.env.envs[0].ep_time / (self.env.envs[0].dt * self.env.envs[0].sim_steps))
+        for env in copied_env.envs:
+            env.ep_len = env.tick + 150
+            env.ep_len = min(env.ep_len, fixed_ep_len)
+
+        self.episode_checkpoints.append((copied_env, copied_obs))
 
     def reset(self):
         """For reset we just use the default implementation."""
@@ -127,7 +135,6 @@ class ExperienceReplayWrapper(gym.Wrapper):
                     else:
                         env, obs = self.episode_checkpoints[-steps_ago]
                         self.replay_buffer.write_cp_to_buffer(env, obs)
-                        self.env.collision_occurred = False  # this allows us to add a copy of this episode to the buffer once again if another collision happens
 
                         self.last_tick_added_to_buffer = self.env.envs[0].tick
 
