@@ -121,10 +121,9 @@ class ExperienceReplayWrapper(gym.Wrapper):
             if collision_flag and use_active_replay_buffer and start_tick_flag and gap_between_collisions:
                 steps_ago = int(self.save_time_before_collision_sec / self.replay_buffer.cp_step_size_sec)
                 if steps_ago > len(self.episode_checkpoints):
-                    print(f"Tried to read past the boundary of checkpoint_history. Steps ago: {steps_ago}, "
-                          f"episode checkpoints: {len(self.episode_checkpoints)}, {self.env.envs[0].tick}")
-                    raise IndexError
-                else:
+                    steps_ago = len(self.episode_checkpoints)
+
+                if len(self.episode_checkpoints) > 0:
                     env, obs = self.episode_checkpoints[-steps_ago]
                     self.replay_buffer.write_cp_to_buffer(env, obs)
                     self.last_tick_added_to_buffer = self.env.envs[0].tick
