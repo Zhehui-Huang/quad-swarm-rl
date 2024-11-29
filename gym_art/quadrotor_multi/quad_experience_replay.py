@@ -109,24 +109,27 @@ class ExperienceReplayWrapper(gym.Wrapper):
 
         else:
             use_active_replay_buffer = self.env.use_replay_buffer and self.env.activate_replay_buffer
-            if use_active_replay_buffer and self.env.envs[0].tick % self.replay_buffer.cp_step_size_freq == 0:
+            if use_active_replay_buffer and not self.env.saved_in_replay_buffer and self.env.envs[0].tick % self.replay_buffer.cp_step_size_freq == 0:
                 self.save_checkpoint(obs)
 
             collision_flag = self.env.last_step_unique_collisions.any()
             if self.env.use_obstacles:
                 collision_flag = collision_flag or len(self.env.curr_quad_col) > 0
 
-            start_tick_flag = self.env.envs[0].tick > self.env.collisions_grace_period_seconds * self.env.envs[0].control_freq
-            gap_between_collisions = self.env.envs[0].tick - self.last_tick_added_to_buffer > 3 * self.env.envs[0].control_freq
-            if collision_flag and use_active_replay_buffer and start_tick_flag and gap_between_collisions:
-                steps_ago = int(self.save_time_before_collision_sec / self.replay_buffer.cp_step_size_sec)
-                if steps_ago > len(self.episode_checkpoints):
-                    steps_ago = len(self.episode_checkpoints)
+            if collision_flag and use_active_replay_buffer and self.env.envs[0].tick > self.env.collisions_grace_period_seconds * self.env.envs[0].control_freq and not self.env.saved_in_replay_buffer:
+                if self.env.envs[0].tick - self.last_tick_added_to_buffer > 5 * self.env.envs[0].control_freq:
+                    # added this check to avoid adding a lot of collisions from the same episode to the buffer
 
-                if len(self.episode_checkpoints) > 0:
-                    env, obs = self.episode_checkpoints[-steps_ago]
-                    self.replay_buffer.write_cp_to_buffer(env, obs)
-                    self.last_tick_added_to_buffer = self.env.envs[0].tick
+                    steps_ago = int(self.save_time_before_collision_sec / self.replay_buffer.cp_step_size_sec)
+                    if steps_ago > len(self.episode_checkpoints):
+                        print(f"Tried to read past the boundary of checkpoint_history. Steps ago: {steps_ago}, episode checkpoints: {len(self.episode_checkpoints)}, {self.env.envs[0].tick}")
+                        raise IndexError
+                    else:
+                        env, obs = self.episode_checkpoints[-steps_ago]
+                        self.replay_buffer.write_cp_to_buffer(env, obs)
+                        self.env.collision_occurred = False  # this allows us to add a copy of this episode to the buffer once again if another collision happens
+
+                        self.last_tick_added_to_buffer = self.env.envs[0].tick
 
         return obs, rewards, dones, infos
 
@@ -139,9 +142,8 @@ class ExperienceReplayWrapper(gym.Wrapper):
         self.last_tick_added_to_buffer = -1e9
         self.episode_checkpoints = deque([], maxlen=self.max_episode_checkpoints_to_keep)
 
-        use_replay_buffer = self.replay_buffer and self.env.activate_replay_buffer and len(self.replay_buffer) > 0
-        sample_from_reply_buffer = np.random.uniform(0, 1) < self.replay_buffer_sample_prob
-        if sample_from_reply_buffer and use_replay_buffer:
+        if np.random.uniform(0, 1) < self.replay_buffer_sample_prob and self.replay_buffer and self.env.activate_replay_buffer \
+                and len(self.replay_buffer) > 0:
             self.replayed_events += 1
             event = self.replay_buffer.sample_event()
             env = event.env

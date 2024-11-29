@@ -3,7 +3,7 @@ from swarm_rl.runs.obstacles.multi_drones.quad_multi_obstacle_baseline import QU
 
 _params = ParamGrid(
     [
-        ("seed", [0000, 3333]),
+        ("seed", [0000, 1111, 2222, 3333]),
         ("quads_critic_obs", ['octomap', 'ToFs']),
     ]
 )
@@ -13,7 +13,7 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     ' --quads_room_dims 8.0 8.0 5.0 --quads_obst_spawn_area 6 4 --quads_obst_grid_size=0.7 '
     '--quads_obst_spawn_center=False --quads_obst_grid_size_range 0.7 1.0 --quads_obst_grid_size_random=True '
     '--quads_obst_collision_prox_weight=0.01 --quads_obst_collision_prox_min=0.05 --quads_obst_collision_prox_max=0.5 '
-    '--replay_buffer_sample_prob=0.75 --quads_obst_density=0.2 '
+    '--quads_obst_density=0.2 --replay_buffer_sample_prob=0.75 '
     # Random
     '--quads_obst_density_random=False --quads_obst_density_min=0.2 --quads_obst_density_max=0.3 '
     '--quads_obst_size_random=True --quads_obst_size_min=0.28 --quads_obst_size_max=0.32 '
