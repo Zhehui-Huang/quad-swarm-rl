@@ -1,5 +1,5 @@
 QUAD_BASELINE_CLI_8 = (
-    'python -m swarm_rl.train --env=quadrotor_multi --train_for_env_steps=1000000000 --algo=APPO --use_rnn=False '
+    'python -m swarm_rl.train --env=quadrotor_multi --train_for_env_steps=2000000000 --algo=APPO --use_rnn=False '
     '--num_workers=36 --num_envs_per_worker=4 --learning_rate=0.0001 --ppo_clip_value=5.0 --recurrence=1 '
     '--nonlinearity=tanh --actor_critic_share_weights=False --policy_initialization=xavier_uniform '
     '--adaptive_stddev=False --with_vtrace=False --max_policy_lag=100000000 --rnn_size=16 '
