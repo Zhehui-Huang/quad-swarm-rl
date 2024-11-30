@@ -29,7 +29,7 @@ class ReplayBuffer:
 
         fixed_ep_len = 1500
         for single_env in env.envs:
-            single_env.ep_len = single_env.tick + 300
+            single_env.ep_len = single_env.tick + 600
             single_env.ep_len = min(single_env.ep_len, fixed_ep_len)
 
         # For example, replace the item with the lowest number of collisions in the last 10 replays
