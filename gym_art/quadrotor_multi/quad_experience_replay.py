@@ -87,10 +87,10 @@ class ExperienceReplayWrapper(gym.Wrapper):
         copied_env = deepcopy(self.env)
         copied_obs = deepcopy(obs)
 
-        fixed_ep_len = int(self.env.envs[0].ep_time / (self.env.envs[0].dt * self.env.envs[0].sim_steps))
-        for env in copied_env.envs:
-            env.ep_len = env.tick + 150
-            env.ep_len = min(env.ep_len, fixed_ep_len)
+        # fixed_ep_len = int(self.env.envs[0].ep_time / (self.env.envs[0].dt * self.env.envs[0].sim_steps))
+        # for env in copied_env.envs:
+        #     env.ep_len = env.tick + 300
+        #     env.ep_len = min(env.ep_len, fixed_ep_len)
 
         self.episode_checkpoints.append((copied_env, copied_obs))
 
