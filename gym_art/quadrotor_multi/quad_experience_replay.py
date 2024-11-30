@@ -27,6 +27,11 @@ class ReplayBuffer:
         """
         env.saved_in_replay_buffer = True
 
+        fixed_ep_len = 1500
+        for single_env in env.envs:
+            single_env.ep_len = single_env.tick + 300
+            single_env.ep_len = min(single_env.ep_len, fixed_ep_len)
+
         # For example, replace the item with the lowest number of collisions in the last 10 replays
         evt = ReplayBufferEvent(env, obs)
         if len(self.buffer) < self.buffer.maxlen:
@@ -86,11 +91,6 @@ class ExperienceReplayWrapper(gym.Wrapper):
         """
         copied_env = deepcopy(self.env)
         copied_obs = deepcopy(obs)
-
-        # fixed_ep_len = int(self.env.envs[0].ep_time / (self.env.envs[0].dt * self.env.envs[0].sim_steps))
-        # for env in copied_env.envs:
-        #     env.ep_len = env.tick + 300
-        #     env.ep_len = min(env.ep_len, fixed_ep_len)
 
         self.episode_checkpoints.append((copied_env, copied_obs))
 
