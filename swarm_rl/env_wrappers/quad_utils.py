@@ -48,6 +48,7 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         neighbor_visible_num=cfg.quads_neighbor_visible_num, neighbor_obs_type=cfg.quads_neighbor_obs_type,
         collision_hitbox_radius=cfg.quads_collision_hitbox_radius,
         collision_falloff_radius=cfg.quads_collision_falloff_radius,
+        neighbor_obs_update_freq=cfg.quads_neighbor_obs_update_freq,
         # Obstacle
         use_obstacles=cfg.quads_use_obstacles, obst_density=cfg.quads_obst_density, obst_size=cfg.quads_obst_size,
         obst_spawn_area=cfg.quads_obst_spawn_area, obst_obs_type=cfg.quads_obstacle_obs_type,
