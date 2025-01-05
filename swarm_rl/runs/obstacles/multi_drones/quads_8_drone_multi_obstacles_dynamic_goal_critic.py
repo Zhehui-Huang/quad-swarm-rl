@@ -27,11 +27,11 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     # Neighbor related
     '--quads_neighbor_obs_update_freq=50 '
     # W & B
-    '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones --wandb_group=search_random_obst_size_v1'
+    '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones --wandb_group=random_density_v1'
 )
 
 _experiment = Experiment(
-    "search_random_obst_size_v1",
+    "random_density_v1",
     OBSTACLE_MODEL_CLI,
     _params.generate_params(randomize=False),
 )
