@@ -56,6 +56,21 @@ class QuadsRewardShapingWrapper(gym.Wrapper, TrainingInfoInterface, RewardShapin
         self.reward_shaping_scheme = dict(quad_rewards=dict())
         self.reward_shaping_updated = True
 
+    def get_scenario_name(self):
+        scenario_name = self.env.unwrapped.scenario.name()[9:]
+        if self.env.unwrapped.scenario.goal_scenario_flag == 0:
+            if self.env.unwrapped.scenario.in_obst_area == 0:
+                scenario_name += '_diff_out_obst'
+            else:
+                scenario_name += '_diff_in_obst'
+        else:
+            if self.env.unwrapped.scenario.in_obst_area == 0:
+                scenario_name += '_same_out_obst'
+            else:
+                scenario_name += '_same_in_obst'
+
+        return scenario_name
+
     def reset(self):
         obs = self.env.reset()
         self.cumulative_rewards = [dict() for _ in range(self.num_agents)]
@@ -106,9 +121,15 @@ class QuadsRewardShapingWrapper(gym.Wrapper, TrainingInfoInterface, RewardShapin
                 extra_stats['z_approx_total_training_steps'] = approx_total_training_steps
 
                 if hasattr(self.env.unwrapped, 'scenario') and self.env.unwrapped.scenario:
-                    scenario_name = self.env.unwrapped.scenario.name()
-                    for rew_key in ['rew_pos', 'rew_crash']:
-                        extra_stats[f'{scenario_name}/{rew_key}'] = self.cumulative_rewards[i][rew_key]
+                    scenario_name = self.get_scenario_name()
+                    if self.env.unwrapped.saved_in_replay_buffer:
+                        for rew_key in self.cumulative_rewards[i].keys():
+                            extra_stats[f'replay/{rew_key}'] = self.cumulative_rewards[i][rew_key]
+                            extra_stats[f'replay/{scenario_name}/{rew_key}'] = self.cumulative_rewards[i][rew_key]
+                    else:
+                        for rew_key in self.cumulative_rewards[i].keys():
+                            extra_stats[f'{rew_key}'] = self.cumulative_rewards[i][rew_key]
+                            extra_stats[f'{scenario_name}/{rew_key}'] = self.cumulative_rewards[i][rew_key]
 
                 episode_actions = np.array(self.episode_actions)
                 episode_actions = episode_actions.transpose()

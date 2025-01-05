@@ -881,8 +881,8 @@ class QuadrotorEnvMulti(gym.Env):
             for i in range(len(infos)):
                 if self.saved_in_replay_buffer:
                     infos[i]['episode_extra_stats'] = {
-                        'num_collisions_replay': self.collisions_per_episode,
-                        'num_collisions_obst_replay': self.obst_quad_collisions_per_episode,
+                        f'replay/{scenario_name}/num_collisions': self.collisions_per_episode,
+                        f'replay/{scenario_name}/num_collisions_obst': self.obst_quad_collisions_per_episode,
                     }
                 else:
                     self.distance_to_goal = np.array(self.distance_to_goal)
