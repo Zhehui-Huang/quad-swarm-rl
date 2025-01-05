@@ -403,7 +403,7 @@ class QuadrotorEnvMulti(gym.Env):
             obst_map[rid, cid] = 1
             obst_item = list(cell_centers[rid + obst_grid_length_num * cid])
             if self.obst_spawn_center is False:
-                # Make sure the minimum gap between any two obstacles are bigger than 0.4 m
+                # Make sure the minimum gap between any two obstacles are bigger than self.min_gap_threshold
                 tmp_minus = (self.grid_size - self.obst_size) / 2 - (self.min_gap_threshold / 2)
                 tmp_minus = round(tmp_minus, 3)
                 if tmp_minus < 0:
