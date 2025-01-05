@@ -271,7 +271,7 @@ class QuadrotorEnvMulti(gym.Env):
         self.obst_size_min = obst_size_min
         self.obst_size_max = obst_size_max
 
-        self.min_gap_threshold = 0.3
+        self.min_gap_threshold = 0.4
 
     def all_dynamics(self):
         return tuple(e.dynamics for e in self.envs)
