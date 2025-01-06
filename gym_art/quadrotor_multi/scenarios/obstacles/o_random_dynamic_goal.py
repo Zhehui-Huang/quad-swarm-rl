@@ -47,7 +47,7 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         
         return
 
-    def reset(self, obst_map=None, cell_centers=None, sim2real_scenario=False):
+    def reset(self, params):
         # 0: Use different goal; 1: Use same goal
         self.goal_scenario_flag = np.random.choice([0, 1])
         # self.goal_scenario_flag = 1
@@ -66,12 +66,12 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         if self.in_obst_area:
             self.start_point, self.global_final_goals = self.generate_start_goal_pos_v2(
                 pos_area_flag=pos_area_flag, goal_scenario_flag=self.goal_scenario_flag, formation=formation,
-                num_agents=self.num_agents
+                num_agents=self.num_agents, transpose_obst_area_flag=params['transpose_obst_area_flag']
             )
         else:
             self.start_point, self.global_final_goals = self.generate_start_goal_pos(
                 pos_area_flag=pos_area_flag, goal_scenario_flag=self.goal_scenario_flag, formation=formation,
-                num_agents=self.num_agents
+                num_agents=self.num_agents, transpose_obst_area_flag=params['transpose_obst_area_flag']
             )
 
         for i in range(self.num_agents):

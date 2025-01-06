@@ -24,10 +24,12 @@ class Scenario_o_swap_goals(Scenario_o_base):
 
         return
 
-    def reset(self, obst_map=None, cell_centers=None):
-        self.obstacle_map = obst_map
-        self.cell_centers = cell_centers
-        if obst_map is None:
+    def reset(self, params):
+        self.obstacle_map = params['obst_map']
+        self.cell_centers = params['cell_centers']
+        self.sim2real_scenario = params.get('sim2real_scenario', None)
+
+        if self.obstacle_map is None:
             raise NotImplementedError
 
         obst_map_locs = np.where(self.obstacle_map == 0)
