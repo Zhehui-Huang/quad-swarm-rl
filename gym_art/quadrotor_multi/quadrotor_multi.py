@@ -380,8 +380,12 @@ class QuadrotorEnvMulti(gym.Env):
 
         return floor_crash_list, wall_crash_list, ceiling_crash_list
 
-    def obst_generation_given_density(self):
-        obst_area_length, obst_area_width = int(self.obst_spawn_area[0]), int(self.obst_spawn_area[1])
+    def obst_generation_given_density(self, transpose_obst_area_flag):
+        if transpose_obst_area_flag:
+            obst_area_length, obst_area_width = int(self.obst_spawn_area[1]), int(self.obst_spawn_area[0])
+        else:
+            obst_area_length, obst_area_width = int(self.obst_spawn_area[0]), int(self.obst_spawn_area[1])
+
         num_room_grids = (obst_area_length // self.grid_size) * (obst_area_width // self.grid_size)
         num_room_grids = int(num_room_grids)
 
@@ -457,15 +461,23 @@ class QuadrotorEnvMulti(gym.Env):
                 obst_noise=self.obst_noise, obst_tof_resolution=self.obst_tof_resolution,
                 critic_rnn_size=self.critic_rnn_size, obst_critic_obs=self.obst_critic_obs,
             )
-
-            self.obst_map, self.obst_pos_arr, cell_centers = self.obst_generation_given_density()
+            transpose_obst_area_flag = np.random.choice([0, 1])
+            self.obst_map, self.obst_pos_arr, cell_centers = self.obst_generation_given_density(
+                transpose_obst_area_flag=transpose_obst_area_flag
+            )
             if self.sim2real_scenario is not None:
                 self.obst_map = np.zeros_like(self.obst_map)
                 self.obst_map[7, 10] = 1.0
                 self.obst_map[5, 11] = 1.0
                 self.obst_pos_arr = [[1.25, 0.25, 2.5], [1.75, 1.25, 2.5]]
 
-            self.scenario.reset(obst_map=self.obst_map, cell_centers=cell_centers, sim2real_scenario=self.sim2real_scenario)
+            scenario_params = {
+                'obst_map': self.obst_map,
+                'cell_centers': cell_centers,
+                'sim2real_scenario': self.sim2real_scenario,
+                'transpose_obst_area_flag': transpose_obst_area_flag
+            }
+            self.scenario.reset(params=scenario_params)
         else:
             self.scenario.reset()
 

@@ -45,15 +45,14 @@ class Scenario_o_random_dynamic_goal_curriculum(Scenario_o_base, TrainingInfoInt
         
         return
 
-    def reset(self, obst_map=None, cell_centers=None, sim2real_scenario=False): 
-        
+    def reset(self, params):
+        self.obstacle_map = params['obst_map']
+        self.cell_centers = params['cell_centers']
+        self.sim2real_scenario = params.get('sim2real_scenario', None)
+
         approx_total_training_steps = self.training_info.get('approx_total_training_steps', 0)
 
-        
-        self.obstacle_map = obst_map
-        self.cell_centers = cell_centers
-        
-        if obst_map is None:
+        if self.obstacle_map is None:
             raise NotImplementedError
 
         obst_map_locs = np.where(self.obstacle_map == 0)
