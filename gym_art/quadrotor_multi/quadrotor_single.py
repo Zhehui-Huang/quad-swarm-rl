@@ -26,6 +26,7 @@ from gymnasium import spaces
 import gym_art.quadrotor_multi.get_state as get_state
 import gym_art.quadrotor_multi.quadrotor_randomization as quad_rand
 from gym_art.quadrotor_multi.control.sbc_control import MellingerController
+from gym_art.quadrotor_multi.control.sbc_control_v2 import MellingerControllerV2
 from gym_art.quadrotor_multi.quad_utils import *
 from gym_art.quadrotor_multi.quadrotor_dynamics import QuadrotorDynamics
 from gym_art.quadrotor_multi.sensor_noise import SensorNoise
@@ -51,7 +52,7 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
         cost_sbc_acc_raw = np.linalg.norm(np.array(thrusts_sbc) - np.array(action))
 
         # sbc boundary
-        cost_sbc_boundary_raw = sbc_info['distance_to_boundary']
+        cost_sbc_boundary_raw = 0.0
     else:
         cost_sbc_acc_raw = 0.0
         cost_sbc_boundary_raw = 0.0
@@ -348,7 +349,7 @@ class QuadrotorSingle:
         # Aux
         self.use_sbc = use_sbc
         if use_sbc:
-            self.sbc_controller = MellingerController(
+            self.sbc_controller = MellingerControllerV2(
                 dynamics=self.dynamics, room_box=self.room_box, num_agents=num_agents, num_obstacles=obst_num,
                 sbc_obst_agg=sbc_obst_agg
             )
@@ -495,8 +496,11 @@ class QuadrotorSingle:
         self.time_remain = self.ep_len - self.tick
 
         if sbc_data is not None:
+            # sbc_thrusts, acc_sbc, sbc_distance_to_boundary, no_sol_flag = self.sbc_controller.step_func(
+            #     dynamics=tmp_dynamics, dt=self.dt, acc_des=self.dynamics.acc, observation=sbc_data
+            # )
             sbc_thrusts, acc_sbc, sbc_distance_to_boundary, no_sol_flag = self.sbc_controller.step_func(
-                dynamics=tmp_dynamics, dt=self.dt, acc_des=self.dynamics.acc, observation=sbc_data
+                dynamics=tmp_dynamics, dt=self.dt, observation=sbc_data, goal=self.goal[:3]
             )
             sbc_info = {
                 'acc': acc_sbc,
