@@ -154,6 +154,60 @@ def get_cell_centers(obst_area_length, obst_area_width, grid_size=1.):
 
     return cell_centers
 
+def obst_generation_given_density(params):
+    # Initialize parameters
+    transpose_obst_area_flag = params['transpose_obst_area_flag']
+    obst_spawn_area = params['obst_spawn_area']
+    obst_grid_size = params['obst_grid_size']
+    obst_density = params['obst_density']
+    obst_size = params['obst_size']
+    min_gap_threshold = params['min_gap_threshold']
+    obst_spawn_center = params['obst_spawn_center']
+    room_dims = params['room_dims']
+
+    if transpose_obst_area_flag:
+        obst_area_length, obst_area_width = int(obst_spawn_area[1]), int(obst_spawn_area[0])
+    else:
+        obst_area_length, obst_area_width = int(obst_spawn_area[0]), int(obst_spawn_area[1])
+
+    num_room_grids = (obst_area_length // obst_grid_size) * (obst_area_width // obst_grid_size)
+    num_room_grids = int(num_room_grids)
+
+    cell_centers = get_cell_centers(
+        obst_area_length=obst_area_length, obst_area_width=obst_area_width, grid_size=obst_grid_size
+    )
+
+    room_map = [i for i in range(0, num_room_grids)]
+
+    obst_index = np.random.choice(a=room_map, size=int(num_room_grids * obst_density), replace=False)
+
+    obst_pos_arr = []
+    # 0: No Obst, 1: Obst
+    obst_grid_length_num = int(obst_area_length // obst_grid_size)
+    obst_grid_width_num = int(obst_area_width // obst_grid_size)
+
+    obst_map = np.zeros([obst_grid_length_num, obst_grid_width_num])
+    for obst_id in obst_index:
+        rid, cid = obst_id // obst_grid_width_num, obst_id - (obst_id // obst_grid_width_num) * obst_grid_width_num
+        obst_map[rid, cid] = 1
+        obst_item = list(cell_centers[rid + obst_grid_length_num * cid])
+        if obst_spawn_center is False:
+            # Make sure the minimum gap between any two obstacles are bigger than self.min_gap_threshold
+            tmp_minus = (obst_grid_size - obst_size) / 2 - (min_gap_threshold / 2)
+            tmp_minus = round(tmp_minus, 3)
+            if tmp_minus < 0:
+                raise ValueError(f"The obst grid size: {obst_grid_size} is too small for the obstacle size. obst_size: {obst_size}, tmp_minus: {tmp_minus}")
+
+            obst_center_max_shift = max(tmp_minus, 0.0)
+            x, y = np.random.uniform(low=-obst_center_max_shift, high=obst_center_max_shift, size=(2,))
+            obst_item[0] += x
+            obst_item[1] += y
+
+        # Add z
+        obst_item.append(room_dims[2] / 2.)
+        obst_pos_arr.append(obst_item)
+
+    return obst_map, obst_pos_arr, cell_centers
 
 if __name__ == "__main__":
     from gym_art.quadrotor_multi.obstacles.test.unit_test import unit_test

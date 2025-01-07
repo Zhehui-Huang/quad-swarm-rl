@@ -380,51 +380,6 @@ class QuadrotorEnvMulti(gym.Env):
 
         return floor_crash_list, wall_crash_list, ceiling_crash_list
 
-    def obst_generation_given_density(self, transpose_obst_area_flag):
-        if transpose_obst_area_flag:
-            obst_area_length, obst_area_width = int(self.obst_spawn_area[1]), int(self.obst_spawn_area[0])
-        else:
-            obst_area_length, obst_area_width = int(self.obst_spawn_area[0]), int(self.obst_spawn_area[1])
-
-        num_room_grids = (obst_area_length // self.grid_size) * (obst_area_width // self.grid_size)
-        num_room_grids = int(num_room_grids)
-
-        cell_centers = get_cell_centers(obst_area_length=obst_area_length, obst_area_width=obst_area_width,
-                                        grid_size=self.grid_size)
-
-        room_map = [i for i in range(0, num_room_grids)]
-
-        obst_index = np.random.choice(a=room_map, size=int(num_room_grids * self.obst_density), replace=False)
-
-        obst_pos_arr = []
-        # 0: No Obst, 1: Obst
-        obst_grid_length_num = int(obst_area_length // self.grid_size)
-        obst_grid_width_num = int(obst_area_width // self.grid_size)
-
-        obst_map = np.zeros([obst_grid_length_num, obst_grid_width_num])
-        for obst_id in obst_index:
-            rid, cid = obst_id // obst_grid_width_num, obst_id - (obst_id // obst_grid_width_num) * obst_grid_width_num
-            obst_map[rid, cid] = 1
-            obst_item = list(cell_centers[rid + obst_grid_length_num * cid])
-            if self.obst_spawn_center is False:
-                # Make sure the minimum gap between any two obstacles are bigger than self.min_gap_threshold
-                tmp_minus = (self.grid_size - self.obst_size) / 2 - (self.min_gap_threshold / 2)
-                tmp_minus = round(tmp_minus, 3)
-                if tmp_minus < 0:
-                    raise ValueError(f"The grid size: {self.grid_size} is too small for the obstacle size. obst_size: {self.obst_size}, tmp_minus: {tmp_minus}")
-
-                obst_center_max_shift = max(tmp_minus, 0.0)
-                x, y = np.random.uniform(low=-obst_center_max_shift, high=obst_center_max_shift, size=(2,))
-                obst_item[0] += x
-                obst_item[1] += y
-
-            # Add z
-            obst_item.append(self.room_dims[2] / 2.)
-
-            obst_pos_arr.append(obst_item)
-
-        return obst_map, obst_pos_arr, cell_centers
-
     def init_scene_multi(self):
         models = tuple(e.dynamics.model for e in self.envs)
         for i in range(len(self.quads_view_mode)):
@@ -442,34 +397,32 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Scenario reset
         if self.use_obstacles:
-            if self.obst_grid_size_random:
-                tmp_grid_size = np.random.uniform(low=self.obst_grid_size_range[0] - 0.049, high=self.obst_grid_size_range[1] + 0.049)
-                self.grid_size = np.round(tmp_grid_size, 1)
-            if self.obst_density_random:
-                self.obst_density = round(np.random.choice(np.arange(self.obst_density_min, self.obst_density_max + 0.01, 0.1)), 1)
-            if self.obst_size_random:
-                tmp_obst_size_max = self.grid_size - self.min_gap_threshold
-                if tmp_obst_size_max < self.obst_size_min:
-                    raise ValueError(f"Obstacle size: {tmp_obst_size_max} is too small for the minimum gap threshold: {self.min_gap_threshold}")
+            obst_params = {
+                # Drone
+                'quad_radius': self.quad_arm,
+                # Obst
+                'obst_obs_type': self.obst_obs_type,
+                'obst_noise': self.obst_noise,
+                'obs_tof_resolution': self.obst_tof_resolution,
+                'critic_rnn_size': self.critic_rnn_size,
+                'obst_critic_obs': self.obst_critic_obs,
+                # Randomization
+                'obst_grid_size_random': self.obst_grid_size_random,
+                'obst_grid_size_range': self.obst_grid_size_range,
+                'obst_grid_size': self.grid_size,
 
-                tmp_obst_max = min(tmp_obst_size_max, self.obst_size_max)
-                self.obst_size = np.round(np.random.uniform(low=self.obst_size_min, high=tmp_obst_max), 2)
+                'obst_density_random': self.obst_density_random,
+                'obst_density_min': self.obst_density_min,
+                'obst_density_max': self.obst_density_max,
+                'obst_density': self.obst_density,
 
-
-            self.obstacles = MultiObstacles(
-                obstacle_size=self.obst_size, quad_radius=self.quad_arm, obs_type=self.obst_obs_type,
-                obst_noise=self.obst_noise, obst_tof_resolution=self.obst_tof_resolution,
-                critic_rnn_size=self.critic_rnn_size, obst_critic_obs=self.obst_critic_obs,
-            )
-            transpose_obst_area_flag = np.random.choice([0, 1])
-            self.obst_map, self.obst_pos_arr, cell_centers = self.obst_generation_given_density(
-                transpose_obst_area_flag=transpose_obst_area_flag
-            )
-            if self.sim2real_scenario is not None:
-                self.obst_map = np.zeros_like(self.obst_map)
-                self.obst_map[7, 10] = 1.0
-                self.obst_map[5, 11] = 1.0
-                self.obst_pos_arr = [[1.25, 0.25, 2.5], [1.75, 1.25, 2.5]]
+                'obst_size_random': self.obst_size_random,
+                'obst_min_gap_threshold': self.min_gap_threshold,
+                'obst_size_min': self.obst_size_min,
+                'obst_size_max': self.obst_size_max,
+                'obst_size': self.obst_size,
+            }
+            self.obstacles = MultiObstacles(params=obst_params)
 
             scenario_params = {
                 'obst_map': self.obst_map,
