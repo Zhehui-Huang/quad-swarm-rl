@@ -872,17 +872,17 @@ class QuadrotorEnvMulti(gym.Env):
                         f'{scenario_name}/num_low_h': self.low_h_count / self.num_agents,
 
                         f'{scenario_name}/distance_to_goal_1s': np.mean(self.distance_to_goal[i, int(-1 * self.control_freq):]),
-                        f'{scenario_name}/{self.obst_density}/distance_to_goal_1s': np.mean(self.distance_to_goal[i, int(-1 * self.control_freq):]),
+                        f'{scenario_name}/{self.obstacles.obst_density}/distance_to_goal_1s': np.mean(self.distance_to_goal[i, int(-1 * self.control_freq):]),
 
 
                         f'{scenario_name}/distance_to_goal_3s': np.mean(self.distance_to_goal[i, int(-3 * self.control_freq):]),
                         f'{scenario_name}/distance_to_goal_5s': np.mean(self.distance_to_goal[i, int(-5 * self.control_freq):]),
 
                         f'{scenario_name}/xy_distance_to_goal_1s': np.mean(self.distance_to_goal_xy[i, int(-1 * self.control_freq):]),
-                        f'{scenario_name}/{self.obst_density}/xy_distance_to_goal_1s': np.mean(
+                        f'{scenario_name}/{self.obstacles.obst_density}/xy_distance_to_goal_1s': np.mean(
                             self.distance_to_goal_xy[i, int(-1 * self.control_freq):]),
                         f'{scenario_name}/z_distance_to_goal_1s': np.mean(self.distance_to_goal_z[i, int(-1 * self.control_freq):]),
-                        f'{scenario_name}/{self.obst_density}/z_distance_to_goal_1s': np.mean(self.distance_to_goal_z[i, int(-1 * self.control_freq):]),
+                        f'{scenario_name}/{self.obstacles.obst_density}/z_distance_to_goal_1s': np.mean(self.distance_to_goal_z[i, int(-1 * self.control_freq):]),
                     }
 
                     if self.use_obstacles:
@@ -922,33 +922,33 @@ class QuadrotorEnvMulti(gym.Env):
                     # agent_success_rate
                     infos[i]['episode_extra_stats']['metric/agent_success_rate'] = agent_success_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_success_rate'] = agent_success_ratio
-                    infos[i]['episode_extra_stats'][f'{scenario_name}/{self.obst_density}/agent_success_rate'] = agent_success_ratio
+                    infos[i]['episode_extra_stats'][f'{scenario_name}/{self.obstacles.obst_density}/agent_success_rate'] = agent_success_ratio
 
                     infos[i]['episode_extra_stats']['metric/agent_hard_success_rate'] = agent_hard_success_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_hard_success_rate'] = agent_hard_success_ratio
-                    infos[i]['episode_extra_stats'][f'{scenario_name}/{self.obst_density}/agent_hard_success_rate'] = agent_hard_success_ratio
+                    infos[i]['episode_extra_stats'][f'{scenario_name}/{self.obstacles.obst_density}/agent_hard_success_rate'] = agent_hard_success_ratio
 
                     # agent_deadlock_rate
                     infos[i]['episode_extra_stats']['metric/agent_deadlock_rate'] = agent_deadlock_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_deadlock_rate'] = agent_deadlock_ratio
-                    infos[i]['episode_extra_stats'][f'{scenario_name}/{self.obst_density}/agent_deadlock_rate'] = agent_deadlock_ratio
+                    infos[i]['episode_extra_stats'][f'{scenario_name}/{self.obstacles.obst_density}/agent_deadlock_rate'] = agent_deadlock_ratio
                     # agent_col_rate
                     infos[i]['episode_extra_stats']['metric/agent_col_rate'] = agent_col_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_col_rate'] = agent_col_ratio
-                    infos[i]['episode_extra_stats'][f'{scenario_name}/{self.obst_density}/agent_col_rate'] = agent_col_ratio
+                    infos[i]['episode_extra_stats'][f'{scenario_name}/{self.obstacles.obst_density}/agent_col_rate'] = agent_col_ratio
 
                     # agent_neighbor_col_rate
                     infos[i]['episode_extra_stats']['metric/agent_neighbor_col_rate'] = agent_neighbor_col_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_neighbor_col_rate'] = agent_neighbor_col_ratio
-                    infos[i]['episode_extra_stats'][f'{scenario_name}/{self.obst_density}/agent_neighbor_col_rate'] = agent_neighbor_col_ratio
+                    infos[i]['episode_extra_stats'][f'{scenario_name}/{self.obstacles.obst_density}/agent_neighbor_col_rate'] = agent_neighbor_col_ratio
                     # agent_obst_col_rate
                     infos[i]['episode_extra_stats']['metric/agent_obst_col_rate'] = agent_obst_col_ratio
                     infos[i]['episode_extra_stats'][f'{scenario_name}/agent_obst_col_rate'] = agent_obst_col_ratio
-                    infos[i]['episode_extra_stats'][f'{scenario_name}/{self.obst_density}/agent_obst_col_rate'] = agent_obst_col_ratio
+                    infos[i]['episode_extra_stats'][f'{scenario_name}/{self.obstacles.obst_density}/agent_obst_col_rate'] = agent_obst_col_ratio
 
                     infos[i]['episode_extra_stats']['metric/sbc_no_sol_rate'] = self.no_sol_list[i]
                     infos[i]['episode_extra_stats'][f'{scenario_name}/sbc_no_sol_rate'] = self.no_sol_list[i]
-                    infos[i]['episode_extra_stats'][f'{scenario_name}/{self.obst_density}/sbc_no_sol_rate'] = self.no_sol_list[i]
+                    infos[i]['episode_extra_stats'][f'{scenario_name}/{self.obstacles.obst_density}/sbc_no_sol_rate'] = self.no_sol_list[i]
 
                     infos[i]['episode_extra_stats']['metric/distance_to_goal_1s'] = np.mean(self.distance_to_goal[i, int(-1 * self.control_freq):])
                     infos[i]['episode_extra_stats']['metric/distance_to_goal_3s'] = np.mean(self.distance_to_goal[i, int(-3 * self.control_freq):])
