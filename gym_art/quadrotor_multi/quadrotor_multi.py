@@ -210,10 +210,6 @@ class QuadrotorEnvMulti(gym.Env):
             }
             self.obstacles = MultiObstacles(params=obst_params)
 
-        # Log more info
-        self.distance_to_goal_3_5 = 0
-        self.distance_to_goal_5 = 0
-
         # Scenarios
         self.quads_mode = quads_mode
         self.scenario = create_scenario(quads_mode=quads_mode, envs=self.envs, num_agents=num_agents,
@@ -467,8 +463,6 @@ class QuadrotorEnvMulti(gym.Env):
                 obs = self.obstacles.reset(obs=obs, quads_pos=quads_pos)
             self.obst_quad_collisions_per_episode = self.obst_quad_collisions_after_settle = 0
             self.prev_obst_quad_collisions = []
-            self.distance_to_goal_3_5 = 0
-            self.distance_to_goal_5 = 0
 
         # Collision
         # # Collision: Neighbor
@@ -620,11 +614,6 @@ class QuadrotorEnvMulti(gym.Env):
             if collisions_obst_curr_tick > 0 and self.envs[0].tick >= self.collisions_grace_period_steps:
                 self.obst_quad_collisions_after_settle += collisions_obst_curr_tick
                 for qid in self.curr_quad_col:
-                    q_rel_dist = np.linalg.norm(obs[qid][0:3])
-                    if q_rel_dist > 3.5:
-                        self.distance_to_goal_3_5 += 1
-                    if q_rel_dist > 5.0:
-                        self.distance_to_goal_5 += 1
                     # Used for log agent_success
                     self.agent_col_obst[qid] = 0
 
@@ -889,10 +878,6 @@ class QuadrotorEnvMulti(gym.Env):
                         infos[i]['episode_extra_stats']['num_collisions_obst_quad'] = self.obst_quad_collisions_per_episode
                         infos[i]['episode_extra_stats']['num_collisions_obst_quad_after_settle'] = self.obst_quad_collisions_after_settle
                         infos[i]['episode_extra_stats'][f'{scenario_name}/num_collisions_obst'] = self.obst_quad_collisions_per_episode
-                        infos[i]['episode_extra_stats']['num_collisions_obst_quad_3_5'] = self.distance_to_goal_3_5
-                        infos[i]['episode_extra_stats'][f'{scenario_name}/num_collisions_obst_quad_3_5'] = self.distance_to_goal_3_5
-                        infos[i]['episode_extra_stats']['num_collisions_obst_quad_5'] = self.distance_to_goal_5
-                        infos[i]['episode_extra_stats'][f'{scenario_name}/num_collisions_obst_quad_5'] = self.distance_to_goal_5
 
             if not self.saved_in_replay_buffer:
                 # agent_success_rate: base_success_rate, based on per agent

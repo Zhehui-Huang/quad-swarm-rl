@@ -122,11 +122,11 @@ class QuadsRewardShapingWrapper(gym.Wrapper, TrainingInfoInterface, RewardShapin
 
                 if hasattr(self.env.unwrapped, 'scenario') and self.env.unwrapped.scenario:
                     scenario_name = self.get_scenario_name()
-                    if self.env.unwrapped.saved_in_replay_buffer:
-                        for rew_key in self.cumulative_rewards[i].keys():
-                            extra_stats[f'replay/{rew_key}'] = self.cumulative_rewards[i][rew_key]
-                            extra_stats[f'replay/{scenario_name}/{rew_key}'] = self.cumulative_rewards[i][rew_key]
-                    else:
+                    # if self.env.unwrapped.saved_in_replay_buffer:
+                        # for rew_key in self.cumulative_rewards[i].keys():
+                        #     extra_stats[f'replay/{rew_key}'] = self.cumulative_rewards[i][rew_key]
+                        #     extra_stats[f'replay/{scenario_name}/{rew_key}'] = self.cumulative_rewards[i][rew_key]
+                    if not self.env.unwrapped.saved_in_replay_buffer:
                         for rew_key in self.cumulative_rewards[i].keys():
                             extra_stats[f'{rew_key}'] = self.cumulative_rewards[i][rew_key]
                             extra_stats[f'{scenario_name}/{rew_key}'] = self.cumulative_rewards[i][rew_key]
