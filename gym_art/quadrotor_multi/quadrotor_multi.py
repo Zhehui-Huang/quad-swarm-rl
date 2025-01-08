@@ -149,7 +149,6 @@ class QuadrotorEnvMulti(gym.Env):
         self.obst_obs_type = obst_obs_type
         self.obst_noise = obst_noise
         self.obstacles = None
-        self.num_obstacles = 0
         if self.use_obstacles:
             self.prev_obst_quad_collisions = []
             self.obst_quad_collisions_per_episode = 0
@@ -157,7 +156,6 @@ class QuadrotorEnvMulti(gym.Env):
             self.curr_quad_col = []
             self.obst_density = obst_density
             self.obst_spawn_area = obst_spawn_area
-            self.num_obstacles = max_obst_num
             self.obst_size = obst_size
             self.grid_size = grid_size
             assert self.obst_size <= self.grid_size
@@ -405,12 +403,10 @@ class QuadrotorEnvMulti(gym.Env):
         models = tuple(e.dynamics.model for e in self.envs)
         for i in range(len(self.quads_view_mode)):
             self.scenes.append(Quadrotor3DSceneMulti(
-                models=models,
-                w=600, h=480, resizable=True, viewpoint=self.quads_view_mode[i],
-                room_dims=self.room_dims, num_agents=self.num_agents,
-                render_speed=self.render_speed, formation_size=self.quads_formation_size, obstacles=self.obstacles,
-                vis_vel_arrows=False, vis_acc_arrows=True, viz_traces=25, viz_trace_nth_step=1,
-                num_obstacles=self.num_obstacles, scene_index=i
+                w=600, h=480, models=models, resizable=True, viewpoint=self.quads_view_mode[i],
+                room_dims=self.room_dims, num_agents=self.num_agents, formation_size=self.quads_formation_size,
+                render_speed=self.render_speed, vis_vel_arrows=False, vis_acc_arrows=True, viz_traces=50,
+                viz_trace_nth_step=1, scene_index=i
             ))
 
     def reset(self):
@@ -955,12 +951,14 @@ class QuadrotorEnvMulti(gym.Env):
 
         if self.reset_scene:
             for i in range(len(self.scenes)):
-                self.scenes[i].update_models(models)
+                self.scenes[i].update_models(models=models)
                 self.scenes[i].formation_size = self.quads_formation_size
-                self.scenes[i].update_env(self.room_dims)
+                self.scenes[i].update_env(room_dims=self.room_dims, obstacles=self.obstacles)
 
-                self.scenes[i].reset(tuple(e.goal for e in self.envs), self.all_dynamics(), self.obstacles,
-                                     self.all_collisions)
+                self.scenes[i].reset(
+                    goals=tuple(e.goal for e in self.envs), dynamics=self.all_dynamics(),
+                    obstacles=self.obstacles, collisions=self.all_collisions
+                )
 
             self.reset_scene = False
 
@@ -989,10 +987,10 @@ class QuadrotorEnvMulti(gym.Env):
         frames = []
         first_spawn = None
         for i in range(len(self.scenes)):
-            frame, first_spawn = self.scenes[i].render_chase(all_dynamics=self.all_dynamics(), goals=goals,
-                                                             collisions=self.all_collisions,
-                                                             mode=self.render_mode, obstacles=self.obstacles,
-                                                             first_spawn=first_spawn)
+            frame, first_spawn = self.scenes[i].render_chase(
+                all_dynamics=self.all_dynamics(), goals=goals, collisions=self.all_collisions, mode=self.render_mode,
+                obstacles=self.obstacles, first_spawn=first_spawn
+            )
             frames.append(frame)
         # Update the formation size of the scenario
         if self.quads_mode == "mix":

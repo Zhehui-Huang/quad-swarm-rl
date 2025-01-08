@@ -1,10 +1,6 @@
 import numpy as np
 import numpy.random as nr
-import numba as nb
 from numba import njit
-from numpy.linalg import norm
-from numpy import cos, sin
-from scipy import spatial
 from copy import deepcopy
 
 EPS = 1e-5
