@@ -11,7 +11,6 @@ from gym_art.quadrotor_multi.collisions.obstacles import perform_collision_with_
 from gym_art.quadrotor_multi.collisions.quadrotors import calculate_collision_matrix, \
     calculate_drone_proximity_penalties, perform_collision_between_drones, calculate_drone_obst_proximity_penalties
 from gym_art.quadrotor_multi.collisions.room import perform_collision_with_wall, perform_collision_with_ceiling
-from gym_art.quadrotor_multi.obstacles.utils import get_cell_centers
 from gym_art.quadrotor_multi.quad_utils import QUADS_OBS_REPR, QUADS_NEIGHBOR_OBS_TYPE
 
 from gym_art.quadrotor_multi.obstacles.obstacles import MultiObstacles
@@ -538,17 +537,17 @@ class QuadrotorEnvMulti(gym.Env):
                 # Add obstacle descriptions
                 self_pos = np.array([self_state['position'][0], self_state['position'][1]])
                 obst_distances = [np.linalg.norm(np.array([obst_pos[0], obst_pos[1]]) - self_pos)
-                                  for obst_pos in self.obst_pos_arr]
+                                  for obst_pos in self.obstacles.obst_pos_arr]
 
                 obst_ids = np.where(np.array(obst_distances) < self.sbc_obst_range)[0]
                 for obst_id in obst_ids:
-                    obst_pos = np.array(self.obst_pos_arr[obst_id])[:2]
+                    obst_pos = np.array(self.obstacles.obst_pos_arr[obst_id])[:2]
                     obstacle_descriptions.append({
                         'state': {
                             'position': obst_pos,
                             'velocity': np.zeros(2)
                         },
-                        'radius': self.obst_size * 0.5,
+                        'radius': self.obstacles.obst_size_arr[obst_id] * 0.5,
                         'maximum_linf_acceleration_lower_bound': 0.0,
                     })
 
@@ -681,7 +680,7 @@ class QuadrotorEnvMulti(gym.Env):
 
             # smooth penalty
             rew_obst_proximity = -1.0 * calculate_drone_obst_proximity_penalties(
-                r_drone=self.quad_arm, r_obst=self.obst_size,
+                r_drone=self.quad_arm, obst_size_arr=self.obstacles.obst_size_arr,
                 quads_pos=self.pos, obst_pos=self.obstacles.pos_arr,
                 penalty_coeff=self.rew_coeff["quads_obst_collision_prox_weight"],
                 penalty_max=self.rew_coeff["quads_obst_collision_prox_max"],
@@ -761,9 +760,11 @@ class QuadrotorEnvMulti(gym.Env):
                     for val in self.curr_quad_col:
                         obstacle_id = quad_obst_pair[int(val)]
                         obstacle_pos = self.obstacles.pos_arr[int(obstacle_id)]
-                        perform_collision_with_obstacle(drone_dyn=self.envs[int(val)].dynamics,
-                                                        obstacle_pos=obstacle_pos,
-                                                        obstacle_size=self.obst_size)
+                        obstacle_size = self.obstacles.obst_size_arr[int(obstacle_id)]
+                        perform_collision_with_obstacle(
+                            drone_dyn=self.envs[int(val)].dynamics, obstacle_pos=obstacle_pos,
+                            obstacle_size=obstacle_size
+                        )
 
             # # 4) Room
             if len(wall_crash_list) > 0 or len(ceiling_crash_list) > 0:

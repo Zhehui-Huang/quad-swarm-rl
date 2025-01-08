@@ -13,7 +13,7 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     # Obst related
     ' --quads_room_dims 8.0 8.0 5.0 --quads_obst_spawn_area 6 4 --quads_obst_grid_size=1.0 '
     '--quads_obst_spawn_center=False --quads_obst_grid_size_random=False --quads_obst_grid_size_range 1.0 1.0 '
-    '--quads_obst_collision_prox_weight=0.01 --quads_obst_collision_prox_min=0.05 --quads_obst_collision_prox_max=0.5 '
+    '--quads_obst_collision_prox_weight=0.01 --quads_obst_collision_prox_min=0.01 --quads_obst_collision_prox_max=0.1 '
     '--quads_obst_density=0.2 '
     # Random
     '--quads_obst_density_random=True '
