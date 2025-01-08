@@ -206,9 +206,9 @@ def obst_generation_given_density(params):
 
         # Add z
         obst_item.append(room_dims[2] / 2.)
-        obst_pos_arr.append(obst_item)
+        obst_pos_arr.append(np.array(obst_item))
 
-    return obst_map, obst_pos_arr, cell_centers, obst_num, obst_size_arr
+    return obst_map, np.array(obst_pos_arr), cell_centers, obst_num, obst_size_arr
 
 if __name__ == "__main__":
     from gym_art.quadrotor_multi.obstacles.test.unit_test import unit_test

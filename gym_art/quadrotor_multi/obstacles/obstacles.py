@@ -11,7 +11,7 @@ class MultiObstacles:
         self.quad_radius = params['quad_radius']
 
         # # Obstacle parameters
-        self.obst_obs_type = params['obs_type']
+        self.obst_obs_type = params['obst_obs_type']
         self.obst_noise = params['obst_noise']
         self.num_rays = params['obst_tof_resolution']
 
@@ -33,8 +33,6 @@ class MultiObstacles:
         self.obst_size_range = [self.obst_size_min, self.obst_size_max]
         self.obst_size_arr = []
 
-        self.transpose_obst_area_flag = 0
-
         # Aux
         obst_critic_obs = params['obst_critic_obs']
         critic_rnn_size = params['critic_rnn_size']
@@ -44,12 +42,10 @@ class MultiObstacles:
         self.room_dims = params['room_dims']
         self.sim2real_scenario = params['sim2real_scenario']
 
-
         self.obst_map = None
         self.obst_pos_arr = None
         self.cell_centers = None
 
-        self.pos_arr = []
         self.resolution = 0.1
         self.fov_angle = 45 * np.pi / 180 
         self.scan_angle_arr = np.array([0., np.pi/2, np.pi, -np.pi/2])
@@ -91,12 +87,10 @@ class MultiObstacles:
         else:
             self.obst_size_range = [self.obst_size, self.obst_size]
 
-        self.transpose_obst_area_flag = np.random.choice([0, 1])
-
     def get_quads_sdf_obs(self, quads_pos):
         quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
         quads_sdf_obs = get_surround_sdfs(
-            quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2], quads_sdf_obs=quads_sdf_obs,
+            quad_poses=quads_pos[:, :2], obst_poses=self.obst_pos_arr[:, :2], quads_sdf_obs=quads_sdf_obs,
             obst_size_arr=self.obst_size_arr, resolution=self.resolution
         )
 
@@ -106,7 +100,7 @@ class MultiObstacles:
         noise_angles = self.scan_angle_arr + np.random.normal(
             loc=0, scale=self.angle_noise_std, size=self.scan_angle_arr.shape)
         quads_tof_obs = get_ToFs_depthmap(
-            quad_poses=quads_pos, obst_poses=self.pos_arr, obst_size_arr=self.obst_size_arr,
+            quad_poses=quads_pos, obst_poses=self.obst_pos_arr, obst_size_arr=self.obst_size_arr,
             scan_max_dist=self.range_max, quad_rotations=quads_rots, scan_angle_arr=noise_angles,
             fov_angle=self.fov_angle, num_rays=self.num_rays
         )
@@ -117,17 +111,17 @@ class MultiObstacles:
 
         return quads_tof_obs
 
-    def reset(self, obs, quads_pos, quads_rots=None):
+    def reset(self, obs, quads_pos, quads_rots=None, transpose_obst_area_flag=0):
         self.reset_randomization()
         if self.sim2real_scenario is not None:
             self.obst_map = np.zeros_like(self.obst_map)
             self.obst_map[7, 10] = 1.0
             self.obst_map[5, 11] = 1.0
-            self.obst_pos_arr = [[1.25, 0.25, 2.5], [1.75, 1.25, 2.5]]
+            self.obst_pos_arr = np.array([[1.25, 0.25, 2.5], [1.75, 1.25, 2.5]])
             self.obst_num = 2
         else:
             obst_generation_params = {
-                'transpose_obst_area_flag': self.transpose_obst_area_flag,
+                'transpose_obst_area_flag': transpose_obst_area_flag,
                 'obst_spawn_area': self.obst_spawn_area,
                 'obst_grid_size': self.obst_grid_size,
                 'obst_density': self.obst_density,
@@ -181,7 +175,7 @@ class MultiObstacles:
 
     def collision_detection(self, pos_quads):
         quad_collisions = collision_detection(
-            quad_poses=pos_quads[:, :2], obst_poses=self.pos_arr[:, :2], obst_size_arr=self.obst_size_arr,
+            quad_poses=pos_quads[:, :2], obst_poses=self.obst_pos_arr[:, :2], obst_size_arr=self.obst_size_arr,
             quad_radius=self.quad_radius
         )
 
