@@ -159,8 +159,6 @@ class QuadrotorEnvMulti(gym.Env):
             self.obst_density = obst_density
             self.obst_spawn_area = obst_spawn_area
             self.num_obstacles = max_obst_num
-            self.obst_map = None
-            self.obst_pos_arr = None
             self.obst_size = obst_size
             self.grid_size = grid_size
             self.obst_spawn_center = obst_spawn_center
@@ -168,7 +166,6 @@ class QuadrotorEnvMulti(gym.Env):
             self.obst_grid_size_range = obst_grid_size_range
             self.critic_rnn_size = critic_rnn_size
             self.obst_critic_obs = obst_critic_obs
-
 
             assert self.obst_size <= self.grid_size
             self.obst_tof_resolution = obst_tof_resolution
@@ -425,10 +422,10 @@ class QuadrotorEnvMulti(gym.Env):
             self.obstacles = MultiObstacles(params=obst_params)
 
             scenario_params = {
-                'obst_map': self.obst_map,
-                'cell_centers': cell_centers,
+                'obst_map': self.obstacles.obst_map,
+                'cell_centers': self.obstacles.cell_centers,
                 'sim2real_scenario': self.sim2real_scenario,
-                'transpose_obst_area_flag': transpose_obst_area_flag
+                'transpose_obst_area_flag': self.obstacles.transpose_obst_area_flag
             }
             self.scenario.reset(params=scenario_params)
         else:
@@ -465,9 +462,9 @@ class QuadrotorEnvMulti(gym.Env):
             quads_pos = np.array([e.dynamics.pos for e in self.envs])
             if self.obst_obs_type == "ToFs":
                 quads_rots = np.array([e.dynamics.rot for e in self.envs])
-                obs = self.obstacles.reset(obs=obs, quads_pos=quads_pos, pos_arr=self.obst_pos_arr, quads_rots=quads_rots)
+                obs = self.obstacles.reset(obs=obs, quads_pos=quads_pos, pos_arr=self.obstacles.obst_pos_arr, quads_rots=quads_rots)
             else:
-                obs = self.obstacles.reset(obs=obs, quads_pos=quads_pos, pos_arr=self.obst_pos_arr)
+                obs = self.obstacles.reset(obs=obs, quads_pos=quads_pos, pos_arr=self.obstacles.obst_pos_arr)
             self.obst_quad_collisions_per_episode = self.obst_quad_collisions_after_settle = 0
             self.prev_obst_quad_collisions = []
             self.distance_to_goal_3_5 = 0

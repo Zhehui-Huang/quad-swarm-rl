@@ -23,6 +23,7 @@ class MultiObstacles:
         self.obst_density_min = params['obst_density_min']
         self.obst_density_max = params['obst_density_max']
         self.obst_density = params['obst_density']
+        self.obst_num = 0
 
         self.obst_size_random = params['obst_size_random']
         self.obst_min_gap_threshold = params['obst_min_gap_threshold']
@@ -30,6 +31,9 @@ class MultiObstacles:
         self.obst_size_max = params['obst_size_max']
         self.obst_size = params['obst_size']
         self.obst_size_range = [self.obst_size_min, self.obst_size_max]
+        self.obst_size_arr = []
+
+        self.transpose_obst_area_flag = 0
 
         # Aux
         obst_critic_obs = params['obst_critic_obs']
@@ -43,6 +47,7 @@ class MultiObstacles:
 
         self.obst_map = None
         self.obst_pos_arr = None
+        self.cell_centers = None
 
         self.pos_arr = []
         self.resolution = 0.1
@@ -58,7 +63,7 @@ class MultiObstacles:
             self.sample_freq = 7 # 14 Hz, conservative but better than 6 being 16hz.
 
         self.use_obst_octomap_critic = False
-        obst_obs_diff_ac = (self.obs_type != obst_critic_obs)
+        obst_obs_diff_ac = (self.obst_obs_type != obst_critic_obs)
         if critic_rnn_size > 0 and obst_obs_diff_ac:
             if obst_critic_obs == 'octomap':
                 self.use_obst_octomap_critic = True
@@ -86,6 +91,32 @@ class MultiObstacles:
         else:
             self.obst_size_range = [self.obst_size, self.obst_size]
 
+        self.transpose_obst_area_flag = np.random.choice([0, 1])
+
+    def get_quads_sdf_obs(self, quads_pos):
+        quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
+        quads_sdf_obs = get_surround_sdfs(
+            quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2], quads_sdf_obs=quads_sdf_obs,
+            obst_size_arr=self.obst_size_arr, resolution=self.resolution
+        )
+
+        return quads_sdf_obs
+
+    def get_quads_tof_obs(self, quads_pos, quads_rots):
+        noise_angles = self.scan_angle_arr + np.random.normal(
+            loc=0, scale=self.angle_noise_std, size=self.scan_angle_arr.shape)
+        quads_tof_obs = get_ToFs_depthmap(
+            quad_poses=quads_pos, obst_poses=self.pos_arr, obst_size_arr=self.obst_size_arr,
+            scan_max_dist=self.range_max, quad_rotations=quads_rots, scan_angle_arr=noise_angles,
+            fov_angle=self.fov_angle, num_rays=self.num_rays
+        )
+        quads_tof_obs = quads_tof_obs + np.random.uniform(
+            low=-self.obst_noise * quads_tof_obs, high=self.obst_noise * quads_tof_obs, size=quads_tof_obs.shape
+        )
+        quads_tof_obs = np.clip(quads_tof_obs, a_min=0.0, a_max=self.range_max)
+
+        return quads_tof_obs
+
     def reset(self, obs, quads_pos, quads_rots=None):
         self.reset_randomization()
         if self.sim2real_scenario is not None:
@@ -93,9 +124,10 @@ class MultiObstacles:
             self.obst_map[7, 10] = 1.0
             self.obst_map[5, 11] = 1.0
             self.obst_pos_arr = [[1.25, 0.25, 2.5], [1.75, 1.25, 2.5]]
+            self.obst_num = 2
         else:
             obst_generation_params = {
-                'transpose_obst_area_flag': np.random.choice([0, 1]),
+                'transpose_obst_area_flag': self.transpose_obst_area_flag,
                 'obst_spawn_area': self.obst_spawn_area,
                 'obst_grid_size': self.obst_grid_size,
                 'obst_density': self.obst_density,
@@ -104,75 +136,54 @@ class MultiObstacles:
                 'obst_spawn_center': self.obst_spawn_center,
                 'room_dims': self.room_dims
             }
-            self.obst_map, self.obst_pos_arr, cell_centers = obst_generation_given_density(params=obst_generation_params)
+            self.obst_map, self.obst_pos_arr, self.cell_centers, self.obst_num, self.obst_size_arr = obst_generation_given_density(
+                params=obst_generation_params
+            )
 
         if self.obst_obs_type == 'octomap':
-            quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
-            quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],
-                                              quads_sdf_obs=quads_sdf_obs, obst_radius=self.obstacle_radius,
-                                              resolution=self.resolution)
-        else:
-            noise_angles = self.scan_angle_arr + np.random.normal(loc=0, scale=self.angle_noise_std, size=self.scan_angle_arr.shape)
-            quads_sdf_obs = get_ToFs_depthmap(
-                quad_poses=quads_pos, obst_poses=self.pos_arr, obst_radius=self.obstacle_radius,
-                scan_max_dist=self.range_max, quad_rotations=quads_rots, scan_angle_arr=noise_angles,
-                fov_angle=self.fov_angle, num_rays=self.num_rays, obst_noise=self.obst_noise
-            )
-            quads_sdf_obs = quads_sdf_obs + np.random.uniform(low=-self.obst_noise * quads_sdf_obs, high=self.obst_noise * quads_sdf_obs, size=quads_sdf_obs.shape)
-            quads_sdf_obs = np.clip(quads_sdf_obs, a_min=0.0, a_max=self.range_max)
-            self.prev = np.copy(quads_sdf_obs)
+            quads_obst_obs = self.get_quads_sdf_obs(quads_pos=quads_pos)
+        elif self.obst_obs_type == 'ToFs':
+            quads_obst_obs = self.get_quads_tof_obs(quads_pos=quads_pos, quads_rots=quads_rots)
+            self.prev = np.copy(quads_obst_obs)
             self.tick = 0
+        else:
+            raise ValueError(f"Unknown obstacle observation type: {self.obst_obs_type}")
 
         if self.use_obst_octomap_critic:
-            quads_obs_critic = 100 * np.ones((len(quads_pos), 9))
-            quads_obs_critic = get_surround_sdfs(
-                quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2], quads_sdf_obs=quads_obs_critic,
-                obst_radius=self.obstacle_radius, resolution=self.resolution
-            )
-            obs = np.concatenate((obs, quads_sdf_obs, quads_obs_critic), axis=1)
+            quads_obs_critic = self.get_quads_sdf_obs(quads_pos=quads_pos)
+            obs = np.concatenate((obs, quads_obst_obs, quads_obs_critic), axis=1)
         else:
-            obs = np.concatenate((obs, quads_sdf_obs), axis=1)
+            obs = np.concatenate((obs, quads_obst_obs), axis=1)
 
         return obs
 
     def step(self, obs, quads_pos, quads_rots=None):
-        if self.obs_type == 'octomap':
-            quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
-            quads_sdf_obs = get_surround_sdfs(quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2],
-                                              quads_sdf_obs=quads_sdf_obs, obst_radius=self.obstacle_radius,
-                                              resolution=self.resolution)
-        else:
+        if self.obst_obs_type == 'octomap':
+            quads_obst_obs = self.get_quads_sdf_obs(quads_pos=quads_pos)
+        elif self.obst_obs_type == 'ToFs':
             self.tick += 1
             if self.tick % self.sample_freq == 0:
-                noise_angles = self.scan_angle_arr + np.random.normal(loc=0, scale=self.angle_noise_std, size=self.scan_angle_arr.shape)
-                quads_sdf_obs = get_ToFs_depthmap(quad_poses=quads_pos, obst_poses=self.pos_arr,
-                                              obst_radius=self.obstacle_radius, scan_max_dist=self.range_max,
-                                              quad_rotations=quads_rots, scan_angle_arr=noise_angles,
-                                              fov_angle=self.fov_angle, num_rays=self.num_rays, obst_noise=self.obst_noise)
-                quads_sdf_obs = quads_sdf_obs + np.random.uniform(
-                    low=-self.obst_noise * quads_sdf_obs, high=self.obst_noise * quads_sdf_obs, size=quads_sdf_obs.shape
-                )
-                quads_sdf_obs = np.clip(quads_sdf_obs, a_min=0.0, a_max=self.range_max)
-                self.prev = np.copy(quads_sdf_obs)
+                quads_obst_obs = self.get_quads_tof_obs(quads_pos=quads_pos, quads_rots=quads_rots)
+                self.prev = np.copy(quads_obst_obs)
                 self.tick = 0
             else:
-                quads_sdf_obs = np.copy(self.prev)
+                quads_obst_obs = np.copy(self.prev)
+        else:
+            raise ValueError(f"Unknown obstacle observation type: {self.obst_obs_type}")
 
         if self.use_obst_octomap_critic:
-            quads_obs_critic = 100 * np.ones((len(quads_pos), 9))
-            quads_obs_critic = get_surround_sdfs(
-                quad_poses=quads_pos[:, :2], obst_poses=self.pos_arr[:, :2], quads_sdf_obs=quads_obs_critic,
-                obst_radius=self.obstacle_radius, resolution=self.resolution
-            )
-            obs = np.concatenate((obs, quads_sdf_obs, quads_obs_critic), axis=1)
+            quads_obs_critic = self.get_quads_sdf_obs(quads_pos=quads_pos)
+            obs = np.concatenate((obs, quads_obst_obs, quads_obs_critic), axis=1)
         else:
-            obs = np.concatenate((obs, quads_sdf_obs), axis=1)
+            obs = np.concatenate((obs, quads_obst_obs), axis=1)
 
         return obs
 
     def collision_detection(self, pos_quads):
-        quad_collisions = collision_detection(quad_poses=pos_quads[:, :2], obst_poses=self.pos_arr[:, :2],
-                                              obst_radius=self.obstacle_radius, quad_radius=self.quad_radius)
+        quad_collisions = collision_detection(
+            quad_poses=pos_quads[:, :2], obst_poses=self.pos_arr[:, :2], obst_size_arr=self.obst_size_arr,
+            quad_radius=self.quad_radius
+        )
 
         collided_quads_id = np.where(quad_collisions > -1)[0]
         collided_obstacles_id = quad_collisions[collided_quads_id]
