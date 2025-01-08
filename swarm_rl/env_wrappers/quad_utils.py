@@ -56,6 +56,7 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         obst_tof_resolution=cfg.quads_obstacle_tof_resolution, obst_spawn_center=cfg.quads_obst_spawn_center,
         obst_grid_size_random=cfg.quads_obst_grid_size_random, obst_grid_size_range=cfg.quads_obst_grid_size_range,
         critic_rnn_size=cfg.quads_critic_rnn_size, obst_critic_obs=cfg.quads_critic_obs,
+        obst_min_gap_threshold=cfg.quads_obst_min_gap_threshold,
         # Aerodynamics
         use_downwash=cfg.quads_use_downwash, z_overlap=cfg.quads_z_overlap,
         # Numba Speed Up

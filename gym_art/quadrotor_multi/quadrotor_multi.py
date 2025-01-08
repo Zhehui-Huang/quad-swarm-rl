@@ -27,7 +27,7 @@ class QuadrotorEnvMulti(gym.Env):
                  # Obstacle
                  use_obstacles, obst_density, obst_size, obst_spawn_area, obst_obs_type, obst_noise, grid_size,
                  obst_tof_resolution, obst_spawn_center, obst_grid_size_random, obst_grid_size_range, critic_rnn_size,
-                 obst_critic_obs,
+                 obst_critic_obs, obst_min_gap_threshold,
                  # Aerodynamics, Numba Speed Up, Scenarios, Room, Replay Buffer, Rendering
                  use_downwash, z_overlap, use_numba, quads_mode, sim2real_scenario, room_dims, use_replay_buffer, quads_view_mode,
                  quads_render,
@@ -176,7 +176,7 @@ class QuadrotorEnvMulti(gym.Env):
             self.obst_size_min = obst_size_min
             self.obst_size_max = obst_size_max
 
-            self.min_gap_threshold = 0.4
+            self.min_gap_threshold = obst_min_gap_threshold
 
             obst_params = {
                 # Drone

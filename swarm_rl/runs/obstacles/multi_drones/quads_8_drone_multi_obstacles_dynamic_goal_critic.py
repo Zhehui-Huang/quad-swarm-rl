@@ -3,9 +3,8 @@ from swarm_rl.runs.obstacles.multi_drones.quad_multi_obstacle_baseline import QU
 
 _params = ParamGrid(
     [
-        ("seed", [0000, 1111, 2222, 3333]),
-        ("quads_obst_density_min", [0.2]),
-        ("quads_obst_density_max", [0.4]),
+        ("seed", [0000, 3333]),
+        ("quads_obst_min_gap_threshold", [0.2, 0.3, 0.4]),
     ]
 )
 
@@ -16,11 +15,11 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     '--quads_obst_collision_prox_weight=0.01 --quads_obst_collision_prox_min=0.01 --quads_obst_collision_prox_max=0.1 '
     '--quads_obst_density=0.2 '
     # Random
-    '--quads_obst_density_random=True '
+    '--quads_obst_density_random=True --quads_obst_density_min=0.2 --quads_obst_density_max=0.4 '
     '--quads_obst_size_random=True --quads_obst_size_min=0.2 --quads_obst_size_max=0.6 '
     '--quads_obst_noise=0.05 '
     # SBC
-    '--quads_enable_sbc=True --quads_neighbor_range=2.0 --quads_obst_range=2.0 --quads_sbc_obst_agg=0.2 '
+    '--quads_enable_sbc=False --quads_neighbor_range=2.0 --quads_obst_range=2.0 --quads_sbc_obst_agg=0.2 '
     '--quads_coeff_sbc_acc=0.2 --quads_coeff_sbc_boundary=0.0 '
     # Aux
     '--normalize_input=True --quads_dynamic_goal=True --exploration_loss_coeff=0.001 --quads_coeff_effort=0.05 '
@@ -29,11 +28,11 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     # Neighbor related
     '--quads_neighbor_obs_update_freq=50 '
     # W & B
-    '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones --wandb_group=obst_all_dir_modified_sbc_v1'
+    '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones --wandb_group=search_min_gap_v1'
 )
 
 _experiment = Experiment(
-    "obst_all_dir_modified_sbc_v1",
+    "search_min_gap_v1",
     OBSTACLE_MODEL_CLI,
     _params.generate_params(randomize=False),
 )
