@@ -12,11 +12,11 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     # Obst related
     ' --quads_room_dims 8.0 8.0 5.0 --quads_obst_spawn_area 6 4 --quads_obst_grid_size=1.0 '
     '--quads_obst_spawn_center=False --quads_obst_grid_size_random=False --quads_obst_grid_size_range 1.0 1.0 '
-    '--quads_obst_collision_prox_weight=0.01 --quads_obst_collision_prox_min=0.01 --quads_obst_collision_prox_max=0.1 '
+    '--quads_obst_collision_prox_weight=0.01 --quads_obst_collision_prox_min=0.01 --quads_obst_collision_prox_max=0.05 '
     '--quads_obst_density=0.2 '
     # Random
     '--quads_obst_density_random=True --quads_obst_density_min=0.2 --quads_obst_density_max=0.4 '
-    '--quads_obst_size_random=True --quads_obst_size_min=0.2 --quads_obst_size_max=0.6 '
+    '--quads_obst_size_random=True --quads_obst_size_min=0.2 --quads_obst_size_max=0.4 '
     '--quads_obst_noise=0.05 '
     # SBC
     '--quads_enable_sbc=False --quads_neighbor_range=2.0 --quads_obst_range=2.0 --quads_sbc_obst_agg=0.2 '
@@ -28,11 +28,11 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     # Neighbor related
     '--quads_neighbor_obs_update_freq=50 '
     # W & B
-    '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones --wandb_group=search_min_gap_v1'
+    '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones --wandb_group=search_min_gap_v2'
 )
 
 _experiment = Experiment(
-    "search_min_gap_v1",
+    "search_min_gap_v2",
     OBSTACLE_MODEL_CLI,
     _params.generate_params(randomize=False),
 )
