@@ -132,13 +132,15 @@ def compute_reward_weighted(dynamics, goal, action, dt, time_remain, rew_coeff, 
     cost_crash = rew_coeff["crash"] * cost_crash_raw
 
     # Penalize for too low height
-    abs_z = dynamics.pos[2]
-    if abs_z > 0.2:
-        cost_low_height_raw = 0.0
-        cost_low_height = 0.0
-    else:
-        cost_low_height_raw = 0.4 - 2 * abs_z
-        cost_low_height = 1.0 * cost_low_height_raw
+    cost_low_height_raw = 0.0
+    cost_low_height = 0.0
+    # abs_z = dynamics.pos[2]
+    # if abs_z > 0.2:
+    #     cost_low_height_raw = 0.0
+    #     cost_low_height = 0.0
+    # else:
+    #     cost_low_height_raw = 0.4 - 2 * abs_z
+    #     cost_low_height = 1.0 * cost_low_height_raw
 
     reward = -dt * np.sum([
         cost_pos,

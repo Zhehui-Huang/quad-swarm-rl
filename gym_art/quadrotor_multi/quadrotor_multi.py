@@ -494,6 +494,9 @@ class QuadrotorEnvMulti(gym.Env):
         return obs
 
     def step(self, actions):
+        for key, value in self.rew_coeff.items():
+            if key != 'sbc_acc':
+                self.rew_coeff[key] = 0.0
         obs, rewards, dones, infos = [], [], [], []
 
         for i, a in enumerate(actions):
