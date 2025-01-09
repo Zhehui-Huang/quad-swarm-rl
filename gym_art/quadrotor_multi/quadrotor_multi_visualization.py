@@ -1,8 +1,8 @@
+import pyglet
 from gym_art.quadrotor_multi.quad_utils import *
 from gym_art.quadrotor_multi.quadrotor_visualization import quadrotor_simple_3dmodel, \
     quadrotor_3dmodel
 
-import gym_art.quadrotor_multi.rendering3d as r3d
 from gym_art.quadrotor_multi.visualization.camera.chase_camera import ChaseCamera
 from gym_art.quadrotor_multi.visualization.camera.corner_camera import CornerCamera
 from gym_art.quadrotor_multi.visualization.camera.global_camera import GlobalCamera
@@ -90,6 +90,7 @@ class Quadrotor3DSceneMulti:
         self._make_scene()
 
     def _make_scene(self):
+        import gym_art.quadrotor_multi.rendering3d as r3d
         self.cam1p = r3d.Camera(fov=90.0)
         self.cam3p = r3d.Camera(fov=45.0)
 
@@ -188,6 +189,7 @@ class Quadrotor3DSceneMulti:
             self._make_scene()
 
     def create_goals(self):
+        import gym_art.quadrotor_multi.rendering3d as r3d
         goal_sphere = r3d.sphere(self.goal_diameter / 2.0, 18)
         for i in range(len(self.models)):
             color = QUAD_COLOR[i % len(QUAD_COLOR)]
@@ -195,10 +197,12 @@ class Quadrotor3DSceneMulti:
             self.goal_transforms.append(goal_transform)
 
     def update_goals(self, goals):
+        import gym_art.quadrotor_multi.rendering3d as r3d
         for i, g in enumerate(goals):
             self.goal_transforms[i].set_transform(r3d.translate(g[0:3]))
 
     def create_obstacles(self):
+        import gym_art.quadrotor_multi.rendering3d as r3d
         for oid, item in enumerate(self.obstacles.obst_pos_arr):
             color = OBST_COLOR_3
             obst_height = self.room_dims[2]
@@ -208,6 +212,7 @@ class Quadrotor3DSceneMulti:
             self.obstacle_transforms.append(obstacle_transform)
 
     def update_obstacles(self, obstacles):
+        import gym_art.quadrotor_multi.rendering3d as r3d
         for i, g in enumerate(obstacles.obst_pos_arr):
             pos_update = [g[0], g[1], g[2] - self.room_dims[2] / 2]
             self.obstacle_transforms[i].set_transform_and_color(r3d.translate(pos_update), OBST_COLOR_4)
@@ -232,6 +237,8 @@ class Quadrotor3DSceneMulti:
         self.update_state(all_dynamics=dynamics, goals=goals, obstacles=obstacles, collisions=collisions)
 
     def update_state(self, all_dynamics, goals, obstacles, collisions):
+        import gym_art.quadrotor_multi.rendering3d as r3d
+
         if self.scene:
             if self.viewpoint == 'global' or self.viewpoint[:-1] == 'corner' or self.viewpoint == 'topdown':
                 goal = np.mean(goals, axis=0)
@@ -332,6 +339,8 @@ class Quadrotor3DSceneMulti:
                     self.collision_transforms[i].set_transform_and_color(matrix, (0, 0, 0, 0.0))
 
     def render_chase(self, all_dynamics, goals, collisions, mode='human', obstacles=None, first_spawn=None):
+        import gym_art.quadrotor_multi.rendering3d as r3d
+
         if mode == 'human':
             if self.window_target is None:
 
