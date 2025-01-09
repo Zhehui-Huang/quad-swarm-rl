@@ -947,6 +947,7 @@ class QuadrotorEnvMulti(gym.Env):
         models = tuple(e.dynamics.model for e in self.envs)
 
         if len(self.scenes) == 0:
+            from gym_art.quadrotor_multi.quadrotor_multi_visualization import Quadrotor3DSceneMulti
             self.init_scene_multi()
 
         if self.reset_scene:
