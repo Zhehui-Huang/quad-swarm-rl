@@ -23,8 +23,8 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         self.global_final_goals = [np.zeros(3) for _ in range(num_agents)]
 
         # The velocity of the trajectory is sampled from a normal distribution
-        self.vel_mean = 1.0
-        self.vel_std = 0.25
+        self.vel_mean = 0.4
+        self.vel_std = 0.1
 
         # Aux
         self.goal_scenario_flag = 0
@@ -43,6 +43,10 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
 
             # different goal
             # # treat each drone separately
+            for i in range(self.num_agents):
+                next_goal = self.goal_generator[i].piecewise_eval(time)
+                self.end_point[i] = next_goal.as_nparray()
+
         else:
             for i in range(self.num_agents):
                 next_goal = self.goal_generator[i].piecewise_eval(time)
@@ -66,7 +70,6 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         else:
             self.approch_goal_metric = 0.5
 
-        # self.goal_scenario_flag = 1
         # 0: From -x to x; 1: From x to -x
         pos_area_flag = np.random.choice([0, 1])
 
@@ -81,9 +84,8 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         self.in_obst_area = np.random.choice([0, 1])
         if self.in_obst_area:
             self.start_point, self.global_final_goals = self.generate_start_goal_pos_v2(
-                pos_area_flag=pos_area_flag, goal_scenario_flag=self.goal_scenario_flag, formation=formation,
-                num_agents=self.num_agents, transpose_obst_area_flag=transpose_obst_area_flag, obst_map=obst_map,
-                cell_centers=cell_centers
+                num_agents=self.num_agents, obst_map=obst_map, cell_centers=cell_centers,
+                goal_scenario_flag=self.goal_scenario_flag
             )
         else:
             self.start_point, self.global_final_goals = self.generate_start_goal_pos(

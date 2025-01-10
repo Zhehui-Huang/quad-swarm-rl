@@ -457,7 +457,7 @@ class QuadrotorEnvMulti(gym.Env):
             quads_pos = np.array([e.dynamics.pos for e in self.envs])
             if self.obst_obs_type == "ToFs":
                 quads_rots = np.array([e.dynamics.rot for e in self.envs])
-                obs = self.obstacles.reset(obs=obs, quads_pos=quads_pos, quads_rots=quads_rots, transpose_obst_area_flag=transpose_obst_area_flag)
+                obs = self.obstacles.reset(obs=obs, quads_pos=quads_pos, quads_rots=quads_rots)
             else:
                 obs = self.obstacles.reset(obs=obs, quads_pos=quads_pos)
             self.obst_quad_collisions_per_episode = self.obst_quad_collisions_after_settle = 0

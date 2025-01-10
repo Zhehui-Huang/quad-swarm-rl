@@ -239,14 +239,34 @@ class Scenario_o_base(QuadrotorScenario):
 
         return start_pos, goal_pos
 
-    def generate_start_goal_pos_v2(self, num_agents, obst_map, cell_centers):
+    def generate_start_goal_pos_v2(self, num_agents, obst_map, cell_centers, goal_scenario_flag):
         start_pos_arr = self.sub_generate_pos_v2(num_agents=num_agents, obst_map=obst_map, cell_centers=cell_centers)
-        end_goal_arr = self.sub_generate_pos_v2(num_agents=num_agents, obst_map=obst_map, cell_centers=cell_centers, z_value=0.65)
+
+        if goal_scenario_flag:
+            end_goal_arr = self.sub_generate_pos_v2(
+                num_agents=1, obst_map=obst_map, cell_centers=cell_centers, z_value=0.65
+            )
+            end_goal_arr = np.repeat(end_goal_arr, 8, axis=0)
+        else:
+            end_goal_arr = self.sub_generate_pos_v2(
+                num_agents=num_agents, obst_map=obst_map, cell_centers=cell_centers, z_value=0.65
+            )
         return start_pos_arr, end_goal_arr
 
-    def sub_generate_pos_v2(self, num_agents, obst_map, cell_centers, z_value=None):
+    def sub_generate_pos_v2(self, num_agents, obst_map, cell_centers, z_value=None, noise_size=0.05):
         obst_map_locs = np.where(obst_map == 0)
         free_space = list(zip(*obst_map_locs))
+        free_space = [
+            (x, y, repeat_num)
+            for repeat_num in range(0, 4)
+            for x, y in free_space
+        ]
+        grid_shift = {
+            0: (-0.25, 0.25),
+            1: (0.25, 0.25),
+            2: (-0.25, -0.25),
+            3: (0.25, -0.25),
+        }
 
         if len(free_space) < num_agents:
             ids = np.random.choice(range(len(free_space)), num_agents, replace=True)
@@ -255,10 +275,11 @@ class Scenario_o_base(QuadrotorScenario):
 
         generated_points = []
         for idx in ids:
-            x, y = free_space[idx][0], free_space[idx][1]
+            x, y, grid_shift_id = free_space[idx]
             width = obst_map.shape[0]
             index = x + (width * y)
-            pos_x, pos_y = cell_centers[index]
+            pos_x, pos_y = cell_centers[index] + grid_shift[grid_shift_id] + np.random.uniform(low=-noise_size, high=noise_size, size=2)
+
             if z_value is None:
                 pos_z = np.random.uniform(low=0.5, high=1.0)
             else:
@@ -266,12 +287,7 @@ class Scenario_o_base(QuadrotorScenario):
 
             generated_points.append(np.array([pos_x, pos_y, pos_z]))
 
-        generated_points = np.array(generated_points)
-
-        noise_size = 0.1
-        noise = np.random.uniform(low=-noise_size, high=noise_size, size=generated_points.shape)
-        generated_points = generated_points + noise
-        return generated_points
+        return np.array(generated_points)
 
     def check_surroundings(self, row, col):
         length, width = self.obstacle_map.shape[0], self.obstacle_map.shape[1]
