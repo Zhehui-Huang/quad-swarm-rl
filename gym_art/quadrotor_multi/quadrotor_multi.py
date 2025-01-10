@@ -415,8 +415,11 @@ class QuadrotorEnvMulti(gym.Env):
         # Scenario reset
         if self.use_obstacles:
             transpose_obst_area_flag = np.random.choice([0, 1])
+            self.obstacles.reset_randomization_and_get_obst_map(transpose_obst_area_flag=transpose_obst_area_flag)
             scenario_params = {
-                'transpose_obst_area_flag': transpose_obst_area_flag
+                'transpose_obst_area_flag': transpose_obst_area_flag,
+                'obst_map': self.obstacles.obst_map,
+                'cell_centers': self.obstacles.cell_centers,
             }
             self.scenario.reset(params=scenario_params)
         else:

@@ -64,7 +64,7 @@ class MultiObstacles:
             if obst_critic_obs == 'octomap':
                 self.use_obst_octomap_critic = True
 
-    def reset_randomization(self):
+    def reset_randomization_and_get_obst_map(self, transpose_obst_area_flag):
         if self.obst_grid_size_random:
             tmp_obst_grid_size = np.random.uniform(
                 low=self.obst_grid_size_range[0] - 0.049,
@@ -86,6 +86,27 @@ class MultiObstacles:
             self.obst_size_range = [self.obst_size_min, tmp_obst_max]
         else:
             self.obst_size_range = [self.obst_size, self.obst_size]
+
+        if self.sim2real_scenario is not None:
+            self.obst_map = np.zeros_like(self.obst_map)
+            self.obst_map[7, 10] = 1.0
+            self.obst_map[5, 11] = 1.0
+            self.obst_pos_arr = np.array([[1.25, 0.25, 2.5], [1.75, 1.25, 2.5]])
+            self.obst_num = 2
+        else:
+            obst_generation_params = {
+                'transpose_obst_area_flag': transpose_obst_area_flag,
+                'obst_spawn_area': self.obst_spawn_area,
+                'obst_grid_size': self.obst_grid_size,
+                'obst_density': self.obst_density,
+                'obst_size_range': self.obst_size_range,
+                'min_gap_threshold': self.obst_min_gap_threshold,
+                'obst_spawn_center': self.obst_spawn_center,
+                'room_dims': self.room_dims
+            }
+            self.obst_map, self.obst_pos_arr, self.cell_centers, self.obst_num, self.obst_size_arr = obst_generation_given_density(
+                params=obst_generation_params
+            )
 
     def get_quads_sdf_obs(self, quads_pos):
         quads_sdf_obs = 100 * np.ones((len(quads_pos), 9))
@@ -111,29 +132,7 @@ class MultiObstacles:
 
         return quads_tof_obs
 
-    def reset(self, obs, quads_pos, quads_rots=None, transpose_obst_area_flag=0):
-        self.reset_randomization()
-        if self.sim2real_scenario is not None:
-            self.obst_map = np.zeros_like(self.obst_map)
-            self.obst_map[7, 10] = 1.0
-            self.obst_map[5, 11] = 1.0
-            self.obst_pos_arr = np.array([[1.25, 0.25, 2.5], [1.75, 1.25, 2.5]])
-            self.obst_num = 2
-        else:
-            obst_generation_params = {
-                'transpose_obst_area_flag': transpose_obst_area_flag,
-                'obst_spawn_area': self.obst_spawn_area,
-                'obst_grid_size': self.obst_grid_size,
-                'obst_density': self.obst_density,
-                'obst_size_range': self.obst_size_range,
-                'min_gap_threshold': self.obst_min_gap_threshold,
-                'obst_spawn_center': self.obst_spawn_center,
-                'room_dims': self.room_dims
-            }
-            self.obst_map, self.obst_pos_arr, self.cell_centers, self.obst_num, self.obst_size_arr = obst_generation_given_density(
-                params=obst_generation_params
-            )
-
+    def reset(self, obs, quads_pos, quads_rots=None):
         if self.obst_obs_type == 'octomap':
             quads_obst_obs = self.get_quads_sdf_obs(quads_pos=quads_pos)
         elif self.obst_obs_type == 'ToFs':

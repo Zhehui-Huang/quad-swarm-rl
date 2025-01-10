@@ -13,7 +13,7 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
     def __init__(self, quads_mode, envs, num_agents, room_dims):
         super().__init__(quads_mode, envs, num_agents, room_dims)
         # Preset
-        self.approch_goal_metric = 0.2 * self.num_agents
+        self.approch_goal_metric = 1.0
         self.formation_list = ["circle", "grid"]
 
         # Position generation
@@ -23,12 +23,13 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         self.global_final_goals = [np.zeros(3) for _ in range(num_agents)]
 
         # The velocity of the trajectory is sampled from a normal distribution
-        self.vel_mean = 0.35
-        self.vel_std = 0.1
+        self.vel_mean = 1.0
+        self.vel_std = 0.25
 
         # Aux
         self.goal_scenario_flag = 0
         self.in_obst_area = 0
+        self.traj_duration_arr = np.zeros(num_agents)
 
     def step(self):
         sim_steps = self.envs[0].sim_steps
@@ -36,10 +37,17 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         dt = self.envs[0].dt
         time = sim_steps * tick * dt
 
-        for i in range(self.num_agents):
-            next_goal = self.goal_generator[i].piecewise_eval(time)
-            self.end_point[i] = next_goal.as_nparray()
-            
+        if self.in_obst_area:
+            # same goal
+            # # same goal, as long as the time is here, change the goal
+
+            # different goal
+            # # treat each drone separately
+        else:
+            for i in range(self.num_agents):
+                next_goal = self.goal_generator[i].piecewise_eval(time)
+                self.end_point[i] = next_goal.as_nparray()
+
         self.goals = copy.deepcopy(self.end_point)
 
         for i, env in enumerate(self.envs):
@@ -49,8 +57,15 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
 
     def reset(self, params):
         transpose_obst_area_flag = params['transpose_obst_area_flag']
+        obst_map = params['obst_map']
+        cell_centers = params['cell_centers']
         # 0: Use different goal; 1: Use same goal
         self.goal_scenario_flag = np.random.choice([0, 1])
+        if self.goal_scenario_flag:
+            self.approch_goal_metric = 1.0
+        else:
+            self.approch_goal_metric = 0.5
+
         # self.goal_scenario_flag = 1
         # 0: From -x to x; 1: From x to -x
         pos_area_flag = np.random.choice([0, 1])
@@ -67,7 +82,8 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         if self.in_obst_area:
             self.start_point, self.global_final_goals = self.generate_start_goal_pos_v2(
                 pos_area_flag=pos_area_flag, goal_scenario_flag=self.goal_scenario_flag, formation=formation,
-                num_agents=self.num_agents, transpose_obst_area_flag=transpose_obst_area_flag
+                num_agents=self.num_agents, transpose_obst_area_flag=transpose_obst_area_flag, obst_map=obst_map,
+                cell_centers=cell_centers
             )
         else:
             self.start_point, self.global_final_goals = self.generate_start_goal_pos(
@@ -81,10 +97,11 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
 
             dist = np.linalg.norm(self.start_point[i] - self.global_final_goals[i])
             traj_speed = np.random.normal(self.vel_mean, self.vel_std)
-            traj_speed = np.clip(traj_speed, a_min=0.2, a_max=0.4)
+            traj_speed = np.clip(traj_speed, a_min=0.5, a_max=1.5)
             traj_duration = dist / traj_speed
             # Clip in case the traj takes too long to finish.
-            traj_duration = np.clip(traj_duration, a_min=0.5, a_max=self.envs[0].ep_time - 0.5)
+            traj_duration = np.clip(traj_duration, a_min=2.0, a_max=self.envs[0].ep_time - 2.0)
+            self.traj_duration_arr[i] = traj_duration
 
             goal_yaw = 0
             # Generate trajectory with random time from (0, ep_time)
