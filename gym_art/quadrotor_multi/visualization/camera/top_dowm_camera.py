@@ -5,10 +5,11 @@ class TopDownCamera(object):
         self.radius = view_dist
         self.theta = np.pi / 2
         self.phi = 0.0
-        self.center = np.array([0., 0., 15.])
+        self.height = 11.0
+        self.center = np.array([0., 0., self.height])
 
     def reset(self, view_dist=2.0, center=np.array([0., 0., 5.])):
-        self.center = np.array([0., 0., 15.])
+        self.center = np.array([0., 0., self.height])
 
     def step(self, center=np.array([0., 0., 2.])):
         pass

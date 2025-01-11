@@ -424,7 +424,6 @@ class QuadrotorEnvMulti(gym.Env):
             self.scenario.reset(params=scenario_params)
         else:
             self.scenario.reset()
-            transpose_obst_area_flag = 0
 
         # Replay buffer
         if self.use_replay_buffer and not self.activate_replay_buffer:
