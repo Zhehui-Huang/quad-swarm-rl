@@ -4,8 +4,9 @@ from swarm_rl.runs.obstacles.multi_drones.quad_multi_obstacle_baseline import QU
 _params = ParamGrid(
     [
         ("seed", [0000, 3333]),
-        ("quads_obst_density_max", [0.2, 0.4, 0.8]),
-        ("exploration_loss_coeff", [0.001, 0.003]),
+        ("quads_obst_density_max", [0.4]),
+        ("quads_obst_size_min", [0.3]),
+        ("quads_obst_size_max", [0.3]),
     ]
 )
 
@@ -23,17 +24,17 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     '--quads_enable_sbc=False --quads_neighbor_range=2.0 --quads_obst_range=2.0 --quads_sbc_obst_agg=0.2 '
     '--quads_coeff_sbc_acc=0.2 --quads_coeff_sbc_boundary=0.0 '
     # Aux
-    '--normalize_input=True --quads_dynamic_goal=True --quads_coeff_effort=0.05 '
+    '--normalize_input=True --quads_dynamic_goal=True --quads_coeff_effort=0.05 --exploration_loss_coeff=0.001 '
     '--quads_coeff_omega=0.2 --quads_coeff_spin=0.0 --quads_mode=o_random_dynamic_goal '
     '--quads_critic_rnn_size=64 --quads_critic_obs=octomap --replay_buffer_sample_prob=0.75 '
     # Neighbor related
     '--quads_neighbor_obs_update_freq=50 '
     # W & B
-    '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones --wandb_group=adir_ro_search_dens_explore_loss_v1'
+    '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones --wandb_group=adir_nro_baseline_v1'
 )
 
 _experiment = Experiment(
-    "adir_ro_search_dens_explore_loss_v1",
+    "adir_nro_baseline_v1",
     OBSTACLE_MODEL_CLI,
     _params.generate_params(randomize=False),
 )
