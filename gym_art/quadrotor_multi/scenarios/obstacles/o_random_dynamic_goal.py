@@ -29,7 +29,9 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         # Aux
         self.goal_scenario_flag = 0
         self.in_obst_area = 0
-        self.traj_duration_arr = np.zeros(num_agents)
+        self.obst_map = None
+        self.cell_centers = None
+        self.cur_duration = np.zeros(num_agents)
 
     def step(self):
         sim_steps = self.envs[0].sim_steps
@@ -38,15 +40,17 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         time = sim_steps * tick * dt
 
         if self.in_obst_area:
-            # same goal
-            # # same goal, as long as the time is here, change the goal
+            if self.goal_scenario_flag:
+                # Same goal
 
-            # different goal
-            # # treat each drone separately
-            for i in range(self.num_agents):
-                next_goal = self.goal_generator[i].piecewise_eval(time)
-                self.end_point[i] = next_goal.as_nparray()
-
+            # for i in range(self.num_agents):
+            #     if time >= self.cur_duration[i]:
+            #         start_point = np.array(self.global_final_goals[i])
+            #         _, self.global_final_goals = self.generate_start_goal_pos_v2(
+            #             num_agents=self.num_agents, obst_map=self.obst_map, cell_centers=self.cell_centers,
+            #             goal_scenario_flag=self.goal_scenario_flag
+            #         )
+            #         self.update_traj_planner(current_time=time, start_point=self.start_point, global_final_goals=self.global_final_goals)
         else:
             for i in range(self.num_agents):
                 next_goal = self.goal_generator[i].piecewise_eval(time)
@@ -59,12 +63,61 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         
         return
 
+    def update_traj_planner(self, current_time, start_point, global_final_goals):
+        if self.goal_scenario_flag:
+            # Same goal
+            initial_state = traj_eval()
+            initial_state.set_initial_pos(start_point[0])
+
+            dist = np.linalg.norm(start_point[0] - global_final_goals[0])
+            traj_speed = np.random.normal(self.vel_mean, self.vel_std)
+            traj_speed = np.clip(traj_speed, a_min=0.2, a_max=0.6)
+            traj_duration = dist / traj_speed
+            # Clip in case the traj takes too long to finish.
+            traj_duration = np.clip(traj_duration, a_min=2.0, a_max=self.envs[0].ep_time - 2.0)
+
+            if traj_duration + current_time > self.envs[0].ep_time - 2.0:
+                for i in range(self.num_agents):
+                    goal_yaw = 0
+                    # Generate trajectory with random time from (0, ep_time)
+                    self.goal_generator[i].plan_go_to_from(
+                        initial_state=initial_state, desired_state=np.append(global_final_goals[i], goal_yaw),
+                        duration=traj_duration, current_time=current_time
+                    )
+
+                    #Find the initial goal
+                    self.end_point[i] = self.goal_generator[i].piecewise_eval(t=current_time).as_nparray()
+        else:
+            for i in range(self.num_agents):
+                initial_state = traj_eval()
+                initial_state.set_initial_pos(start_point[i])
+
+                dist = np.linalg.norm(start_point[i] - global_final_goals[i])
+                traj_speed = np.random.normal(self.vel_mean, self.vel_std)
+                traj_speed = np.clip(traj_speed, a_min=0.2, a_max=0.6)
+                traj_duration = dist / traj_speed
+                # Clip in case the traj takes too long to finish.
+                traj_duration = np.clip(traj_duration, a_min=2.0, a_max=self.envs[0].ep_time - 2.0)
+
+                if traj_duration + current_time > self.envs[0].ep_time - 2.0:
+                    goal_yaw = 0
+                    # Generate trajectory with random time from (0, ep_time)
+                    self.goal_generator[i].plan_go_to_from(
+                        initial_state=initial_state, desired_state=np.append(global_final_goals[i], goal_yaw),
+                        duration=traj_duration, current_time=current_time
+                    )
+
+                    #Find the initial goal
+                    self.end_point[i] = self.goal_generator[i].piecewise_eval(t=current_time).as_nparray()
+
+
     def reset(self, params):
         transpose_obst_area_flag = params['transpose_obst_area_flag']
-        obst_map = params['obst_map']
-        cell_centers = params['cell_centers']
+        self.obst_map = params['obst_map']
+        self.cell_centers = params['cell_centers']
         # 0: Use different goal; 1: Use same goal
-        self.goal_scenario_flag = np.random.choice([0, 1])
+        # self.goal_scenario_flag = np.random.choice([0, 1])
+        self.goal_scenario_flag = 1
         if self.goal_scenario_flag:
             self.approch_goal_metric = 1.0
         else:
@@ -81,10 +134,11 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         else:
             formation = None
 
-        self.in_obst_area = np.random.choice([0, 1])
+        # self.in_obst_area = np.random.choice([0, 1])
+        self.in_obst_area = 1
         if self.in_obst_area:
             self.start_point, self.global_final_goals = self.generate_start_goal_pos_v2(
-                num_agents=self.num_agents, obst_map=obst_map, cell_centers=cell_centers,
+                num_agents=self.num_agents, obst_map=self.obst_map, cell_centers=self.cell_centers,
                 goal_scenario_flag=self.goal_scenario_flag
             )
         else:
@@ -99,11 +153,11 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
 
             dist = np.linalg.norm(self.start_point[i] - self.global_final_goals[i])
             traj_speed = np.random.normal(self.vel_mean, self.vel_std)
-            traj_speed = np.clip(traj_speed, a_min=0.5, a_max=1.5)
+            traj_speed = np.clip(traj_speed, a_min=0.2, a_max=0.6)
             traj_duration = dist / traj_speed
             # Clip in case the traj takes too long to finish.
             traj_duration = np.clip(traj_duration, a_min=2.0, a_max=self.envs[0].ep_time - 2.0)
-            self.traj_duration_arr[i] = traj_duration
+            self.cur_duration[i] = traj_duration
 
             goal_yaw = 0
             # Generate trajectory with random time from (0, ep_time)
