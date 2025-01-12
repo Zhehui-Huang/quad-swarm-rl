@@ -1,6 +1,7 @@
 import numpy as np
 
-from gym_art.quadrotor_multi.obstacles.utils import get_surround_sdfs, collision_detection, get_cell_centers
+from gym_art.quadrotor_multi.obstacles.utils import get_surround_sdfs, collision_detection, get_cell_centers, \
+    get_ToFs_depthmap
 
 
 def test_get_surround_sdfs():
@@ -47,10 +48,28 @@ def test_get_cell_centers():
     return
 
 
+def test_get_ToFs_depthmap():
+    quad_poses = np.array([[0., 0., 0.]])
+    obst_poses = np.array([[1., 0., 5.]])
+    obst_size_arr = np.array([1.0])
+    scan_max_dist = 2.0
+    quad_rotations = np.array([np.identity(3)])
+    scan_angle_arr = np.array([0., np.pi/2, np.pi, -np.pi/2])
+    num_rays = 4
+    fov_angle = 45 * np.pi / 180
+
+    quads_obs = get_ToFs_depthmap(
+        quad_poses, obst_poses, obst_size_arr, scan_max_dist, quad_rotations, scan_angle_arr, num_rays, fov_angle
+    )
+    print(quads_obs)
+
+
+
 def unit_test():
     test_get_surround_sdfs()
     test_collision_detection()
     test_get_cell_centers()
+    test_get_ToFs_depthmap()
     print('Pass unit test!')
     return
 
