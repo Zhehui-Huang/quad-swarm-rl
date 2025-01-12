@@ -4,9 +4,6 @@ from swarm_rl.runs.obstacles.multi_drones.quad_multi_obstacle_baseline import QU
 _params = ParamGrid(
     [
         ("seed", [0000, 3333]),
-        ("quads_obst_density_max", [0.4]),
-        ("quads_obst_size_min", [0.3]),
-        ("quads_obst_size_max", [0.3]),
     ]
 )
 
@@ -17,7 +14,7 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     '--quads_obst_collision_prox_weight=0.01 --quads_obst_collision_prox_min=0.01 --quads_obst_collision_prox_max=0.05 '
     '--quads_obst_density=0.2 --quads_obst_min_gap_threshold=0.4 '
     # Random
-    '--quads_obst_density_random=True --quads_obst_density_min=0.2 '
+    '--quads_obst_density_random=True --quads_obst_density_min=0.2 --quads_obst_density_max=0.4 '
     '--quads_obst_size_random=True --quads_obst_size_min=0.2 --quads_obst_size_max=0.4 '
     '--quads_obst_noise=0.05 '
     # SBC
@@ -30,11 +27,11 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     # Neighbor related
     '--quads_neighbor_obs_update_freq=50 '
     # W & B
-    '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones --wandb_group=adir_nro_baseline_v1'
+    '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones --wandb_group=adir_ro_disable_rew_vel_v1'
 )
 
 _experiment = Experiment(
-    "adir_nro_baseline_v1",
+    "adir_ro_disable_rew_vel_v1",
     OBSTACLE_MODEL_CLI,
     _params.generate_params(randomize=False),
 )
