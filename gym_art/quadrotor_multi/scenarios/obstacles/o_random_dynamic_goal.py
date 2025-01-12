@@ -111,12 +111,10 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         self.obst_map = params['obst_map']
         self.cell_centers = params['cell_centers']
         # 0: Use different goal; 1: Use same goal
-        # self.goal_scenario_flag = np.random.choice([0, 1])
-        self.goal_scenario_flag = 1
+        self.goal_scenario_flag = np.random.choice([0, 1])
         # 0: From -x to x; 1: From x to -x
         pos_area_flag = np.random.choice([0, 1])
-        # self.in_obst_area = np.random.choice([0, 1])
-        self.in_obst_area = 0
+        self.in_obst_area = np.random.choice([0, 1])
 
         if self.goal_scenario_flag:
             self.approch_goal_metric = 1.0
