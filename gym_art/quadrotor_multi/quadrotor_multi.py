@@ -672,7 +672,8 @@ class QuadrotorEnvMulti(gym.Env):
                 quads_pos=self.pos, obst_pos=self.obstacles.obst_pos_arr,
                 penalty_coeff=self.rew_coeff["quads_obst_collision_prox_weight"],
                 penalty_max=self.rew_coeff["quads_obst_collision_prox_max"],
-                penalty_min=self.rew_coeff["quads_obst_collision_prox_min"]
+                penalty_min=self.rew_coeff["quads_obst_collision_prox_min"],
+                dt=self.control_dt
             )
 
         # 3) With room
