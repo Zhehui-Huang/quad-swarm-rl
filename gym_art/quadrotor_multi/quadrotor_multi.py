@@ -779,7 +779,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Concatenate observations of neighbor drones
         # Update neighbor obs
-        if self.envs[0].tick % self.neighbor_obs_update_freq == 0:
+        if self.envs[0].tick % int(100 // self.neighbor_obs_update_freq) == 0:
             self.neighbor_pos_copy = copy.deepcopy(self.pos)
             self.neighbor_vel_copy = copy.deepcopy(self.vel)
 
