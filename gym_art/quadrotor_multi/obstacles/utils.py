@@ -2,7 +2,7 @@ import numpy as np
 from numba import njit
 
 @njit
-def get_surround_sdfs(quad_poses, obst_poses, quads_sdf_obs, obst_radius, resolution=0.1):
+def get_surround_sdfs(quad_poses, obst_poses, quads_sdf_obs, obst_size_arr, resolution=0.1):
     # Shape of quads_sdf_obs: (quad_num, 9)
 
     sdf_map = np.array([-1., -1., -1., 0., 0., 0., 1., 1., 1.])
@@ -16,13 +16,13 @@ def get_surround_sdfs(quad_poses, obst_poses, quads_sdf_obs, obst_radius, resolu
                 grid_pos = np.array([g_x, g_y])
 
                 min_dist = 100.0
-                for o_pos in obst_poses:
-                    dist = np.linalg.norm(grid_pos - o_pos)
+                for oid, o_pos in enumerate(obst_poses):
+                    dist = np.linalg.norm(grid_pos - o_pos) - obst_size_arr[oid] / 2.0
                     if dist < min_dist:
                         min_dist = dist
 
                 g_id = g_i * 3 + g_j
-                quads_sdf_obs[i, g_id] = min_dist - obst_radius
+                quads_sdf_obs[i, g_id] = min_dist
 
     return quads_sdf_obs
 
@@ -73,7 +73,7 @@ def is_surface_in_cylinder_view(vector, q_pos, o_pos, o_radius, fov_angle):
     return (None, None)
 
 @njit
-def get_ToFs_depthmap(quad_poses, obst_poses, obst_radius, scan_max_dist, quad_rotations, scan_angle_arr, num_rays, fov_angle, obst_noise):
+def get_ToFs_depthmap(quad_poses, obst_poses, obst_size_arr, scan_max_dist, quad_rotations, scan_angle_arr, num_rays, fov_angle):
         """
             quad_poses:     quadrotor positions, only with xy pos
             obst_poses:     obstacle positions, only with xy pos
@@ -115,24 +115,23 @@ def get_ToFs_depthmap(quad_poses, obst_poses, obst_radius, scan_max_dist, quad_r
                         o_pos_xy = obst_poses[o_id][:2]
 
                         # Returns distance and length of the path inside the circle along the shortest distance vector
-                        distance, circle_len = is_surface_in_cylinder_view(cur_dir, q_pos_xy, o_pos_xy, obst_radius,
-                                                                           fov_angle / num_rays)
+                        distance, circle_len = is_surface_in_cylinder_view(
+                            vector=cur_dir, q_pos=q_pos_xy, o_pos=o_pos_xy, o_radius=obst_size_arr[o_id] / 2.0, fov_angle=fov_angle / num_rays
+                        )
                         if distance is not None:
                             quads_obs[q_id][ray_id*num_rays+sec_id] = min(quads_obs[q_id][ray_id*num_rays+sec_id], distance-sensor_offset)
 
-        # quads_obs = quads_obs + np.random.uniform(-obst_noise * quads_obs, obst_noise * quads_obs, size=quads_obs.shape)
-        # quads_obs = np.clip(quads_obs, a_min=0.0, a_max=scan_max_dist)
         return quads_obs
 
 @njit
-def collision_detection(quad_poses, obst_poses, obst_radius, quad_radius):
+def collision_detection(quad_poses, obst_poses, obst_size_arr, quad_radius):
     quad_num = len(quad_poses)
-    collide_threshold = quad_radius + obst_radius
     # Get distance matrix b/w quad and obst
     quad_collisions = -1 * np.ones(quad_num)
     for i, q_pos in enumerate(quad_poses):
         for j, o_pos in enumerate(obst_poses):
             dist = np.linalg.norm(q_pos - o_pos)
+            collide_threshold = quad_radius + obst_size_arr[j] / 2.0
             if dist <= collide_threshold:
                 quad_collisions[i] = j
                 break
@@ -154,6 +153,62 @@ def get_cell_centers(obst_area_length, obst_area_width, grid_size=1.):
 
     return cell_centers
 
+def obst_generation_given_density(params):
+    # Initialize parameters
+    transpose_obst_area_flag = params['transpose_obst_area_flag']
+    obst_spawn_area = params['obst_spawn_area']
+    obst_grid_size = params['obst_grid_size']
+    obst_density = params['obst_density']
+    obst_size_range = params['obst_size_range']
+    min_gap_threshold = params['min_gap_threshold']
+    obst_spawn_center = params['obst_spawn_center']
+    room_dims = params['room_dims']
+
+    if transpose_obst_area_flag:
+        obst_area_length, obst_area_width = int(obst_spawn_area[1]), int(obst_spawn_area[0])
+    else:
+        obst_area_length, obst_area_width = int(obst_spawn_area[0]), int(obst_spawn_area[1])
+
+    num_room_grids = (obst_area_length // obst_grid_size) * (obst_area_width // obst_grid_size)
+    num_room_grids = int(num_room_grids)
+
+    cell_centers = get_cell_centers(
+        obst_area_length=obst_area_length, obst_area_width=obst_area_width, grid_size=obst_grid_size
+    )
+
+    room_map = [i for i in range(0, num_room_grids)]
+
+    obst_num = int(num_room_grids * obst_density)
+    obst_index = np.random.choice(a=room_map, size=obst_num, replace=False)
+    obst_size_arr = np.round(np.random.uniform(obst_size_range[0], obst_size_range[1], obst_num), decimals=2)
+
+    obst_pos_arr = []
+    # 0: No Obst, 1: Obst
+    obst_grid_length_num = int(obst_area_length // obst_grid_size)
+    obst_grid_width_num = int(obst_area_width // obst_grid_size)
+
+    obst_map = np.zeros([obst_grid_length_num, obst_grid_width_num])
+    for oid, obst_id in enumerate(obst_index):
+        rid, cid = obst_id // obst_grid_width_num, obst_id - (obst_id // obst_grid_width_num) * obst_grid_width_num
+        obst_map[rid, cid] = 1
+        obst_item = list(cell_centers[rid + obst_grid_length_num * cid])
+        if obst_spawn_center is False:
+            # Make sure the minimum gap between any two obstacles are bigger than self.min_gap_threshold
+            tmp_minus = (obst_grid_size - obst_size_arr[oid]) / 2 - (min_gap_threshold / 2)
+            tmp_minus = round(tmp_minus, 3)
+            if tmp_minus < 0:
+                raise ValueError(f"The obst grid size: {obst_grid_size} is too small for the obstacle size. obst_size: {obst_size_arr[oid]}, tmp_minus: {tmp_minus}")
+
+            obst_center_max_shift = max(tmp_minus, 0.0)
+            x, y = np.random.uniform(low=-obst_center_max_shift, high=obst_center_max_shift, size=(2,))
+            obst_item[0] += x
+            obst_item[1] += y
+
+        # Add z
+        obst_item.append(room_dims[2] / 2.)
+        obst_pos_arr.append(np.array(obst_item))
+
+    return obst_map, np.array(obst_pos_arr), cell_centers, obst_num, obst_size_arr
 
 if __name__ == "__main__":
     from gym_art.quadrotor_multi.obstacles.test.unit_test import unit_test
