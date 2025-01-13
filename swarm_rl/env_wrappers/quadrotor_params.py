@@ -34,6 +34,8 @@ def add_quadrotors_env_args(env, parser):
                         'agents')
     p.add_argument('--quads_neighbor_obs_type', default='none', type=str, choices=['none', 'pos', 'pos_vel'],
                    help='Choose what kind of obs to send to encoder.')
+    p.add_argument('--quads_neighbor_obs_update_freq', default=50, type=int,
+                   help='The update frequency of neighbor obs')
 
     # # Neighbor Encoder
     p.add_argument('--quads_neighbor_hidden_size', default=256, type=int,

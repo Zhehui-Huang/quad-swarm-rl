@@ -137,7 +137,7 @@ class QuadrotorScenario:
     def step(self):
         raise NotImplementedError("Implemented in a specific scenario")
 
-    def reset(self):
+    def reset(self, params):
         # Reset formation and related parameters
         self.update_formation_and_relate_param()
 

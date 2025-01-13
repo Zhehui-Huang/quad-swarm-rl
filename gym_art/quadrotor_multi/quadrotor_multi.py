@@ -24,6 +24,7 @@ class QuadrotorEnvMulti(gym.Env):
     def __init__(self, num_agents, ep_time, rew_coeff, obs_repr, obs_rel_rot, dynamic_goal,
                  # Neighbor
                  neighbor_visible_num, neighbor_obs_type, collision_hitbox_radius, collision_falloff_radius,
+                 neighbor_obs_update_freq,
                  # Obstacle
                  use_obstacles, obst_density, obst_size, obst_spawn_area, obst_obs_type, obst_noise, grid_size,
                  obst_tof_resolution, obst_spawn_center, obst_grid_size_random, obst_grid_size_range, critic_rnn_size,
@@ -141,6 +142,9 @@ class QuadrotorEnvMulti(gym.Env):
         self.clip_neighbor_space_max_box = self.observation_space.high[
                                            obs_self_size:obs_self_size + self.clip_neighbor_space_length]
 
+        self.neighbor_pos_copy = copy.deepcopy(self.pos)
+        self.neighbor_vel_copy = copy.deepcopy(self.vel)
+        self.neighbor_obs_update_freq = neighbor_obs_update_freq
         # Obstacles
         self.use_obstacles = use_obstacles
         self.obst_obs_type = obst_obs_type
@@ -281,8 +285,8 @@ class QuadrotorEnvMulti(gym.Env):
 
         cur_pos = self.pos[i]
         cur_vel = self.vel[i]
-        pos_neighbor = np.stack([self.pos[j] for j in indices])
-        vel_neighbor = np.stack([self.vel[j] for j in indices])
+        pos_neighbor = np.stack([self.neighbor_pos_copy[j] for j in indices])
+        vel_neighbor = np.stack([self.neighbor_vel_copy[j] for j in indices])
         pos_rel = pos_neighbor - cur_pos
         vel_rel = vel_neighbor - cur_vel
         return pos_rel, vel_rel
@@ -376,8 +380,12 @@ class QuadrotorEnvMulti(gym.Env):
 
         return floor_crash_list, wall_crash_list, ceiling_crash_list
 
-    def obst_generation_given_density(self):
-        obst_area_length, obst_area_width = int(self.obst_spawn_area[0]), int(self.obst_spawn_area[1])
+    def obst_generation_given_density(self, transpose_obst_area_flag):
+        if transpose_obst_area_flag:
+            obst_area_length, obst_area_width = int(self.obst_spawn_area[1]), int(self.obst_spawn_area[0])
+        else:
+            obst_area_length, obst_area_width = int(self.obst_spawn_area[0]), int(self.obst_spawn_area[1])
+
         num_room_grids = (obst_area_length // self.grid_size) * (obst_area_width // self.grid_size)
         num_room_grids = int(num_room_grids)
 
@@ -399,7 +407,7 @@ class QuadrotorEnvMulti(gym.Env):
             obst_map[rid, cid] = 1
             obst_item = list(cell_centers[rid + obst_grid_length_num * cid])
             if self.obst_spawn_center is False:
-                # Make sure the minimum gap between any two obstacles are bigger than 0.4 m
+                # Make sure the minimum gap between any two obstacles are bigger than self.min_gap_threshold
                 tmp_minus = (self.grid_size - self.obst_size) / 2 - (self.min_gap_threshold / 2)
                 tmp_minus = round(tmp_minus, 3)
                 if tmp_minus < 0:
@@ -453,15 +461,23 @@ class QuadrotorEnvMulti(gym.Env):
                 obst_noise=self.obst_noise, obst_tof_resolution=self.obst_tof_resolution,
                 critic_rnn_size=self.critic_rnn_size, obst_critic_obs=self.obst_critic_obs,
             )
-
-            self.obst_map, self.obst_pos_arr, cell_centers = self.obst_generation_given_density()
+            transpose_obst_area_flag = np.random.choice([0, 1])
+            self.obst_map, self.obst_pos_arr, cell_centers = self.obst_generation_given_density(
+                transpose_obst_area_flag=transpose_obst_area_flag
+            )
             if self.sim2real_scenario is not None:
                 self.obst_map = np.zeros_like(self.obst_map)
                 self.obst_map[7, 10] = 1.0
                 self.obst_map[5, 11] = 1.0
                 self.obst_pos_arr = [[1.25, 0.25, 2.5], [1.75, 1.25, 2.5]]
 
-            self.scenario.reset(obst_map=self.obst_map, cell_centers=cell_centers, sim2real_scenario=self.sim2real_scenario)
+            scenario_params = {
+                'obst_map': self.obst_map,
+                'cell_centers': cell_centers,
+                'sim2real_scenario': self.sim2real_scenario,
+                'transpose_obst_area_flag': transpose_obst_area_flag
+            }
+            self.scenario.reset(params=scenario_params)
         else:
             self.scenario.reset()
 
@@ -482,8 +498,12 @@ class QuadrotorEnvMulti(gym.Env):
             observation = e.reset()
             obs.append(observation)
             self.pos[i, :] = e.dynamics.pos
+            self.vel[i, :] = e.dynamics.vel
 
         # Neighbors
+        self.neighbor_pos_copy = copy.deepcopy(self.pos)
+        self.neighbor_vel_copy = copy.deepcopy(self.vel)
+
         if self.num_use_neighbor_obs > 0:
             obs = self.add_neighborhood_obs(obs)
 
@@ -818,6 +838,11 @@ class QuadrotorEnvMulti(gym.Env):
             obs = [e.state_vector(e) for e in self.envs]
 
         # Concatenate observations of neighbor drones
+        # Update neighbor obs
+        if self.envs[0].tick % (int(100 // self.neighbor_obs_update_freq)) == 0:
+            self.neighbor_pos_copy = copy.deepcopy(self.pos)
+            self.neighbor_vel_copy = copy.deepcopy(self.vel)
+
         if self.num_use_neighbor_obs > 0:
             obs = self.add_neighborhood_obs(obs)
 
@@ -868,8 +893,8 @@ class QuadrotorEnvMulti(gym.Env):
             for i in range(len(infos)):
                 if self.saved_in_replay_buffer:
                     infos[i]['episode_extra_stats'] = {
-                        'num_collisions_replay': self.collisions_per_episode,
-                        'num_collisions_obst_replay': self.obst_quad_collisions_per_episode,
+                        f'replay/{scenario_name}/num_collisions': self.collisions_per_episode,
+                        f'replay/{scenario_name}/num_collisions_obst': self.obst_quad_collisions_per_episode,
                     }
                 else:
                     self.distance_to_goal = np.array(self.distance_to_goal)

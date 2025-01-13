@@ -57,14 +57,14 @@ class Scenario_o_ep_rand_bezier(Scenario_o_base):
 
         return
 
-    def reset(self, obst_map=None, cell_centers=None):
+    def reset(self, params):
         # Update duration time
         self.duration_time = 0.01
         self.control_step_for_sec = int(self.duration_time * self.envs[0].control_freq)
 
-        self.obstacle_map = obst_map
-        self.cell_centers = cell_centers
-        if obst_map is None or cell_centers is None:
+        self.obstacle_map = params['obst_map']
+        self.cell_centers = params['cell_centers']
+        if self.obstacle_map is None or self.cell_centers is None:
             raise NotImplementedError
 
         obst_map_locs = np.where(self.obstacle_map == 0)

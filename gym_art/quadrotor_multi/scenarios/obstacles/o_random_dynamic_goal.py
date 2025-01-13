@@ -9,7 +9,7 @@ from gym_art.quadrotor_multi.quadrotor_planner import traj_eval
 class Scenario_o_random_dynamic_goal(Scenario_o_base):
     """ This scenario implements a 13 dim goal that tracks a smooth polynomial trajectory. 
         Each goal point is evaluated through the polynomial generated per reset."""
-        
+
     def __init__(self, quads_mode, envs, num_agents, room_dims):
         super().__init__(quads_mode, envs, num_agents, room_dims)
         # Preset
@@ -39,15 +39,15 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         for i in range(self.num_agents):
             next_goal = self.goal_generator[i].piecewise_eval(time)
             self.end_point[i] = next_goal.as_nparray()
-            
+
         self.goals = copy.deepcopy(self.end_point)
 
         for i, env in enumerate(self.envs):
             env.goal = self.end_point[i]
-        
+
         return
 
-    def reset(self, obst_map=None, cell_centers=None, sim2real_scenario=False):
+    def reset(self, params):
         # 0: Use different goal; 1: Use same goal
         self.goal_scenario_flag = np.random.choice([0, 1])
         # self.goal_scenario_flag = 1
@@ -66,12 +66,12 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         if self.in_obst_area:
             self.start_point, self.global_final_goals = self.generate_start_goal_pos_v2(
                 pos_area_flag=pos_area_flag, goal_scenario_flag=self.goal_scenario_flag, formation=formation,
-                num_agents=self.num_agents
+                num_agents=self.num_agents, transpose_obst_area_flag=params['transpose_obst_area_flag']
             )
         else:
             self.start_point, self.global_final_goals = self.generate_start_goal_pos(
                 pos_area_flag=pos_area_flag, goal_scenario_flag=self.goal_scenario_flag, formation=formation,
-                num_agents=self.num_agents
+                num_agents=self.num_agents, transpose_obst_area_flag=params['transpose_obst_area_flag']
             )
 
         for i in range(self.num_agents):
@@ -92,7 +92,7 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
                 duration=traj_duration, current_time=0
             )
 
-            #Find the initial goal
+            # Find the initial goal
             self.end_point[i] = self.goal_generator[i].piecewise_eval(0).as_nparray()
 
         self.spawn_points = copy.deepcopy(self.start_point)
