@@ -58,7 +58,7 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         critic_rnn_size=cfg.quads_critic_rnn_size, obst_critic_obs=cfg.quads_critic_obs,
         obst_min_gap_threshold=cfg.quads_obst_min_gap_threshold,
         # Aerodynamics
-        use_downwash=cfg.quads_use_downwash, z_overlap=cfg.quads_z_overlap,
+        use_downwash=cfg.quads_use_downwash,
         # Numba Speed Up
         use_numba=cfg.quads_use_numba,
         # Scenarios
@@ -92,6 +92,8 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
     reward_shaping['quad_rewards']['omega'] = cfg.quads_coeff_omega
     reward_shaping['quad_rewards']['spin'] = cfg.quads_coeff_spin
     reward_shaping['quad_rewards']['effort'] = cfg.quads_coeff_effort
+    reward_shaping['quad_rewards']['z_overlap'] = cfg.quads_coeff_z_overlap
+
     reward_shaping['quad_rewards']['sbc_acc'] = cfg.quads_coeff_sbc_acc
     reward_shaping['quad_rewards']['sbc_boundary'] = cfg.quads_coeff_sbc_boundary
 

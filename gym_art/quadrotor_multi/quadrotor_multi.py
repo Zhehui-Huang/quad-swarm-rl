@@ -29,7 +29,7 @@ class QuadrotorEnvMulti(gym.Env):
                  obst_tof_resolution, obst_spawn_center, obst_grid_size_random, obst_grid_size_range, critic_rnn_size,
                  obst_critic_obs, obst_min_gap_threshold,
                  # Aerodynamics, Numba Speed Up, Scenarios, Room, Replay Buffer, Rendering
-                 use_downwash, z_overlap, use_numba, quads_mode, sim2real_scenario, room_dims, use_replay_buffer, quads_view_mode,
+                 use_downwash, use_numba, quads_mode, sim2real_scenario, room_dims, use_replay_buffer, quads_view_mode,
                  quads_render,
                  # Quadrotor Specific (Do Not Change)
                  dynamics_params, raw_control, raw_control_zero_middle,
@@ -111,7 +111,7 @@ class QuadrotorEnvMulti(gym.Env):
         self.rew_coeff = dict(
             # self
             pos=1., effort=0.05, action_change=0., crash=1., orient=1., yaw=0., omega=1., rot=0., attitude=0.,
-            spin=0.1, vel=0.,
+            spin=0.1, vel=0., z_overlap=0.0,
             # collision
             quadcol_bin=5., quadcol_bin_smooth_max=4., quadcol_bin_obst=5., quads_obst_collision_prox_weight=0.0, 
             quads_obst_collision_prox_max=0.5, quads_obst_collision_prox_min=0.,
@@ -254,7 +254,6 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Aerodynamics
         self.use_downwash = use_downwash
-        self.z_overlap = z_overlap
 
         # Rendering
         # # set to true whenever we need to reset the OpenGL scene in render()
@@ -659,7 +658,7 @@ class QuadrotorEnvMulti(gym.Env):
                     rew_z_overlap_raw[i] = -1.0
                     rew_z_overlap_raw[j] = -1.0
 
-        rew_z_overlap = 0.0 * rew_z_overlap_raw
+        rew_z_overlap = self.rew_coeff['z_overlap'] * rew_z_overlap_raw
 
         # 2) With obstacles
         rew_collisions_obst_quad = np.zeros(self.num_agents)
@@ -852,7 +851,7 @@ class QuadrotorEnvMulti(gym.Env):
                         'num_collisions_with_ceiling': self.collisions_ceiling_per_episode,
                         'num_collisions_after_settle': self.collisions_after_settle,
                         f'{scenario_name}/num_collisions': self.collisions_after_settle,
-                        f'{scenario_name}/z_overlap': rew_z_overlap_raw[i],
+                        f'{scenario_name}/z_overlap_raw': rew_z_overlap_raw[i],
 
                         'num_collisions_final_5_s': self.collisions_final_5s,
                         f'{scenario_name}/num_collisions_final_5_s': self.collisions_final_5s,

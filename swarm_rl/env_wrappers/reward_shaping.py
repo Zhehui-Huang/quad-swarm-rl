@@ -24,7 +24,7 @@ DEFAULT_QUAD_REWARD_SHAPING['quad_rewards'].update(dict(
 
 # Update for Dynamic Goal
 DEFAULT_QUAD_REWARD_SHAPING['quad_rewards'].update(dict(
-    vel=0.0, omega=0.1, orient=0.5,
+    vel=0.0, omega=0.1, orient=0.5, z_overlap=0.0,
     # SBC
     sbc_acc=0.0, sbc_boundary=0.0
 ))

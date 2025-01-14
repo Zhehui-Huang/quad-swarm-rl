@@ -111,7 +111,7 @@ def add_quadrotors_env_args(env, parser):
     p.add_argument('--quads_use_downwash', default=False, type=str2bool, help='Apply downwash or not')
 
     # # Not overlap in z
-    p.add_argument('--quads_z_overlap', default=False, type=str2bool, help='drones able to go under each other.')
+    p.add_argument('--quads_coeff_z_overlap', default=0.0, type=float, help='Coeff when drones overlap in z')
 
     # Numba Speed Up
     p.add_argument('--quads_use_numba', default=False, type=str2bool, help='Whether to use numba for jit or not')
