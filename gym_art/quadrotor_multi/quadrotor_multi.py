@@ -706,21 +706,22 @@ class QuadrotorEnvMulti(gym.Env):
                 infos[i]["rewards"]["rew_quadcol_obstacle"] = rew_collisions_obst_quad[i]
                 infos[i]["rewards"]["rew_obst_proximity"] = rew_obst_proximity[i]
 
-            self.distance_to_goal[i].append(np.linalg.norm(self.envs[i].dynamics.pos - self.scenario.global_final_goals[i]))
-            self.distance_to_goal_xy[i].append(np.linalg.norm(self.envs[i].dynamics.pos[:2] - self.scenario.global_final_goals[i][:2]))
-            self.distance_to_goal_z[i].append(self.envs[i].dynamics.pos[2] - self.scenario.global_final_goals[i][2])
+            self.distance_to_goal[i].append(np.linalg.norm(self.envs[i].dynamics.pos - self.envs[i].goal[:3]))
+            self.distance_to_goal_xy[i].append(np.linalg.norm(self.envs[i].dynamics.pos[:2] - self.envs[i].goal[:2]))
+            self.distance_to_goal_z[i].append(self.envs[i].dynamics.pos[2] - self.envs[i].goal[:3][2])
 
-            reach_len_bool = len(self.distance_to_goal[i]) >= 5
-            reach_goal_bool = np.mean(self.distance_to_goal[i][-5:]) < self.scenario.approch_goal_metric
+            if self.envs[0].time_remain <= 200:
+                reach_len_bool = len(self.distance_to_goal[i]) >= 5
+                reach_goal_bool = np.mean(self.distance_to_goal[i][-5:]) < self.scenario.approch_goal_metric
 
-            hard_reach_len_bool = len(self.distance_to_goal[i]) >= 100
-            hard_reach_goal_bool = np.mean(self.distance_to_goal[i][-100:]) < self.scenario.approch_goal_metric
+                hard_reach_len_bool = len(self.distance_to_goal[i]) >= 100
+                hard_reach_goal_bool = np.mean(self.distance_to_goal[i][-100:]) < self.scenario.approch_goal_metric
 
-            if not self.reached_goal[i] and reach_len_bool and reach_goal_bool:
-                self.reached_goal[i] = True
+                if not self.reached_goal[i] and reach_len_bool and reach_goal_bool:
+                    self.reached_goal[i] = True
 
-            if not self.hard_reached_goal[i] and hard_reach_len_bool and hard_reach_goal_bool:
-                self.hard_reached_goal[i] = True
+                if not self.hard_reached_goal[i] and hard_reach_len_bool and hard_reach_goal_bool:
+                    self.hard_reached_goal[i] = True
 
         # 3. Applying random forces: 1) aerodynamics 2) between drones 3) obstacles 4) room
         self_state_update_flag = False

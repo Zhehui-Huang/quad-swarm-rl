@@ -46,12 +46,12 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         if self.in_obst_area:
             if self.goal_scenario_flag:
                 # Same goal
-                self.start_point = np.array(self.global_final_goals)
-                _, self.global_final_goals = self.generate_start_goal_pos_v2(
-                    num_agents=self.num_agents, obst_map=self.obst_map, cell_centers=self.cell_centers,
-                    goal_scenario_flag=self.goal_scenario_flag
-                )
                 if time >= max(self.cur_duration):
+                    self.start_point = np.array(self.global_final_goals)
+                    _, self.global_final_goals = self.generate_start_goal_pos_v2(
+                        num_agents=self.num_agents, obst_map=self.obst_map, cell_centers=self.cell_centers,
+                        goal_scenario_flag=self.goal_scenario_flag
+                    )
                     self.update_traj_planner(current_time=time)
             else:
                 for i in range(self.num_agents):
