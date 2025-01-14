@@ -385,15 +385,18 @@ class QuadSingleHeadAttentionEncoder_Sim2Real(QuadMultiHeadAttentionEncoder):
         self_embed = self.self_embed_layer(obs_self)
         neighbor_embed = self.neighbor_embed_layer(obs_neighbor)
         obstacle_embed = self.obstacle_embed_layer(obs_obstacle)
+
+        self_embed = self_embed.view(batch_size, 1, -1)
         neighbor_embed = neighbor_embed.view(batch_size, 1, -1)
         obstacle_embed = obstacle_embed.view(batch_size, 1, -1)
-        attn_embed = torch.cat((neighbor_embed, obstacle_embed), dim=1)
+
+        attn_embed = torch.cat((self_embed, neighbor_embed, obstacle_embed), dim=1)
 
         attn_embed, attn_score = self.attention_layer(attn_embed, attn_embed, attn_embed)
         attn_embed = attn_embed.view(batch_size, -1)
 
-        embeddings = torch.cat((self_embed, attn_embed), dim=1)
-        out = self.feed_forward(embeddings)
+        # embeddings = torch.cat((self_embed, attn_embed), dim=1)
+        out = self.feed_forward(attn_embed)
 
         return out
 
