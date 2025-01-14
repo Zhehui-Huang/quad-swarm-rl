@@ -23,7 +23,7 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     '--quads_coeff_sbc_acc=0.2 --quads_coeff_sbc_boundary=0.0 '
     # Aux
     '--normalize_input=True --quads_dynamic_goal=True --exploration_loss_coeff=0.001 --quads_coeff_effort=0.05 '
-    '--quads_coeff_omega=0.2 --quads_coeff_spin=0.0 --quads_mode=o_random_dynamic_goal '
+    '--quads_coeff_omega=0.2 --quads_coeff_spin=0.0 --quads_mode=o_random_dynamic_goal --quads_coeff_z_overlap=0.0 '
     '--quads_critic_rnn_size=64 --quads_critic_obs=octomap --replay_buffer_sample_prob=0.75 '
     # Neighbor related
     '--quads_neighbor_obs_update_freq=50 '
