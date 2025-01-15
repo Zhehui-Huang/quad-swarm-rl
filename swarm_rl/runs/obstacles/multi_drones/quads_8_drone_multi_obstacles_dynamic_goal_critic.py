@@ -4,7 +4,7 @@ from swarm_rl.runs.obstacles.multi_drones.quad_multi_obstacle_baseline import QU
 _params = ParamGrid(
     [
         ("seed", [0000, 3333]),
-        ("quads_coeff_z_overlap", [0.005, 0.01, 0.02]),
+        ("quads_coeff_z_overlap", [0.01]),
     ]
 )
 
@@ -30,11 +30,11 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     # Model
     '--rnn_size=16 --quads_neighbor_hidden_size=16 --quads_obst_hidden_size=16 '
     # W & B
-    '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones --wandb_group=adir_ro_cm_search_z_overlap_v1'
+    '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones --wandb_group=adir_ro_cmodel2_search_z_overlap_v1'
 )
 
 _experiment = Experiment(
-    "adir_ro_cm_search_z_overlap_v1",
+    "adir_ro_cmodel2_search_z_overlap_v1",
     OBSTACLE_MODEL_CLI,
     _params.generate_params(randomize=False),
 )
