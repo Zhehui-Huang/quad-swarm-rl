@@ -90,6 +90,7 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
     reward_shaping = copy.deepcopy(DEFAULT_QUAD_REWARD_SHAPING)
 
     reward_shaping['quad_rewards']['omega'] = cfg.quads_coeff_omega
+    reward_shaping['quad_rewards']['vel'] = cfg.quads_coeff_vel
     reward_shaping['quad_rewards']['spin'] = cfg.quads_coeff_spin
     reward_shaping['quad_rewards']['effort'] = cfg.quads_coeff_effort
     reward_shaping['quad_rewards']['z_overlap'] = cfg.quads_coeff_z_overlap

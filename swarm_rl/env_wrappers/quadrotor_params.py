@@ -160,8 +160,10 @@ def add_quadrotors_env_args(env, parser):
     p.add_argument('--quads_sbc_obst_agg', default=0.2, type=float, help='sbc obst aggressive')
 
     p.add_argument('--quads_coeff_effort', default=0.05, type=float, help='Reward coeff of actions')
+    p.add_argument('--quads_coeff_vel', default=0.1, type=float, help='Reward coeff of vel')
     p.add_argument('--quads_coeff_omega', default=0.0, type=float, help='Reward coeff of rel omega')
     p.add_argument('--quads_coeff_spin', default=0.0, type=float, help='Reward coeff of abs omega')
+
     p.add_argument('--quads_coeff_sbc_acc', default=0.0, type=float, help='Reward coeff of rl_acc and sbc_acc')
     p.add_argument('--quads_coeff_sbc_boundary', default=0.0, type=float, help='Reward coeff of sbc_boundary')
 
