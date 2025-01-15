@@ -31,11 +31,11 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     # Model
     '--rnn_size=16 --quads_neighbor_hidden_size=16 --quads_obst_hidden_size=16 '
     # W & B
-    '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones --wandb_group=adir_ro_cmodel2_search_vel_v1'
+    '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones --wandb_group=adir_ro_cmodel2_increase_traj_speed_v1'
 )
 
 _experiment = Experiment(
-    "adir_ro_cmodel2_search_vel_v1",
+    "adir_ro_cmodel2_increase_traj_speed_v1",
     OBSTACLE_MODEL_CLI,
     _params.generate_params(randomize=False),
 )
