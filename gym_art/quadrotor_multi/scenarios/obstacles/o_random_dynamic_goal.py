@@ -23,11 +23,11 @@ class Scenario_o_random_dynamic_goal(Scenario_o_base):
         self.global_final_goals = [np.zeros(3) for _ in range(num_agents)]
 
         # The velocity of the trajectory is sampled from a normal distribution
-        self.vel_mean = 0.8
+        self.vel_mean = 0.5
         self.vel_std = 0.1
 
-        self.min_speed = 0.6
-        self.max_speed = 1.0
+        self.min_speed = 0.3
+        self.max_speed = 0.7
         self.max_duration_time = self.envs[0].ep_time - 2.0
 
         # Aux
