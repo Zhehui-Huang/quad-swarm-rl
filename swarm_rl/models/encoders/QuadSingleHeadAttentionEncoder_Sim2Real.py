@@ -103,7 +103,7 @@ class QuadSingleHeadAttentionEncoder_Sim2Real(QuadMultiHeadAttentionEncoder):
 
         # MLP Layer
         self.feed_forward = nn.Sequential(
-            fc_layer(3 * cfg.rnn_size, cfg.rnn_size), nn.Tanh()
+            fc_layer(4 * cfg.rnn_size, cfg.rnn_size), nn.Tanh()
         )
         self.encoder_output_size = cfg.rnn_size
 
@@ -142,7 +142,7 @@ class QuadSingleHeadAttentionEncoder_Sim2Real(QuadMultiHeadAttentionEncoder):
         attn_embed = attn_embed.view(batch_size, -1)
 
         # Concat
-        # embeddings = torch.cat((self_embed, attn_embed), dim=1)
-        out = self.feed_forward(attn_embed)
+        embeddings = torch.cat((self_embed, attn_embed), dim=1)
+        out = self.feed_forward(embeddings)
 
         return out

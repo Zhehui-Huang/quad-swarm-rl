@@ -113,14 +113,12 @@ class QuadMultiHeadAttentionEncoder(Encoder):
 
         # MLP Layer
         self.feed_forward = nn.Sequential(
-            fc_layer(3 * fc_encoder_layer, int(1.5 * fc_encoder_layer)),
+            fc_layer(4 * fc_encoder_layer, int(fc_encoder_layer)),
             nn.Tanh(),
-            fc_layer(int(1.5 * fc_encoder_layer), int(0.75 * fc_encoder_layer)),
-            nn.Tanh(),
-            fc_layer(int(0.75 * fc_encoder_layer), int(0.375 * fc_encoder_layer)),
+            fc_layer(int(fc_encoder_layer), int(0.25 * fc_encoder_layer)),
             nn.Tanh(),
         )
-        self.encoder_output_size = int(0.375 * fc_encoder_layer)
+        self.encoder_output_size = int(0.25 * fc_encoder_layer)
 
     def get_out_size(self):
         return self.encoder_output_size
@@ -157,7 +155,7 @@ class QuadMultiHeadAttentionEncoder(Encoder):
         attn_embed = attn_embed.view(batch_size, -1)
 
         # Concat
-        # embeddings = torch.cat((self_embed, attn_embed), dim=1)
-        out = self.feed_forward(attn_embed)
+        embeddings = torch.cat((self_embed, attn_embed), dim=1)
+        out = self.feed_forward(embeddings)
 
         return out
