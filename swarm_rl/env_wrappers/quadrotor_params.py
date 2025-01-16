@@ -105,6 +105,8 @@ def add_quadrotors_env_args(env, parser):
     p.add_argument('--quads_obst_collision_prox_min', default=0.0, type=float,
                    help='The lower bound of the distance between obstacles and drones for proximity penalty to be applied. This is in meters.')
 
+    # # General Encoder
+    p.add_argument('--quads_attn_head_num', default=4, type=int, help='The attention head number.')
 
     # Aerodynamics
     # # Downwash
