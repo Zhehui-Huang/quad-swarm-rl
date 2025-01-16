@@ -270,6 +270,12 @@ class QuadrotorEnvMulti(gym.Env):
             self.quads_formation_size = 2.0
             self.all_collisions = {}
 
+            # For pause render
+            self.obs_copy = None
+            self.rewards_copy = None
+            self.dones_copy = None
+            self.infos_copy = None
+
         # Log
         self.distance_to_goal = [[] for _ in range(len(self.envs))]
         self.distance_to_goal_xy = [[] for _ in range(len(self.envs))]
@@ -495,6 +501,10 @@ class QuadrotorEnvMulti(gym.Env):
         return obs
 
     def step(self, actions):
+        if self.quads_render:
+            if self.scenes[0].pause_render:
+                return self.obs_copy, self.rewards_copy, self.dones_copy, self.infos_copy
+
         obs, rewards, dones, infos = [], [], [], []
 
         for i, a in enumerate(actions):
@@ -942,6 +952,12 @@ class QuadrotorEnvMulti(gym.Env):
             obs = self.reset()
             # terminate the episode for all "sub-envs"
             dones = [True] * len(dones)
+
+        if self.quads_render:
+            self.obs_copy = copy.deepcopy(obs)
+            self.rewards_copy = copy.deepcopy(rewards)
+            self.dones_copy = copy.deepcopy(dones)
+            self.infos_copy = copy.deepcopy(infos)
 
         return obs, rewards, dones, infos
 

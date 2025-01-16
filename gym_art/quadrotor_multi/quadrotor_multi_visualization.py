@@ -80,6 +80,9 @@ class Quadrotor3DSceneMulti:
         self.store_path_count = 0
         self.path_store = [[] for _ in range(num_agents)]
 
+        # Aux debug, pause or resume
+        self.pause_render = False
+
     def update_goal_diameter(self):
         self.diameter = np.linalg.norm(self.models[0].params['motor_pos']['xyz'][:2])
         self.goal_diameter = self.diameter
@@ -382,8 +385,15 @@ class Quadrotor3DSceneMulti:
         key = self.pygl_window.key
 
         symbol = list(self.keys)
-        if key.NUM_0 <= symbol[0] <= key.NUM_9:
-            index = min(symbol[0] - key.NUM_0, self.num_agents - 1)
+        if (key.NUM_0 <= symbol[0] <= key.NUM_9) or (key._0 <= symbol[0] <= key._9):
+            # Map the symbol to an index based on which key group it belongs to
+            if key.NUM_0 <= symbol[0] <= key.NUM_9:
+                index = min(symbol[0] - key.NUM_0, self.num_agents - 1)
+            elif key._0 <= symbol[0] <= key._9:
+                index = min(symbol[0] - key._0, self.num_agents - 1)
+            else:
+                raise NotImplementedError("Only number keys are supported")
+
             self.camera_drone_index = index
             self.viewpoint = 'local'
             self.chase_cam = ChaseCamera(view_dist=self.diameter * 15)
@@ -402,6 +412,12 @@ class Quadrotor3DSceneMulti:
             self.viewpoint = 'topdown'
             self.chase_cam = TopDownCamera(view_dist=2.5)
             self.chase_cam.reset()
+        if self.keys[key.P]:
+            # Pause
+            self.pause_render = True
+        if self.keys[key.R]:
+            # Resume
+            self.pause_render = False
 
         if self.keys[key.LEFT]:
             # <- Left Rotation :
@@ -425,7 +441,7 @@ class Quadrotor3DSceneMulti:
                 print('Current rotation step size for camera is the minimum!')
             else:
                 self.camera_rot_step_size /= 2
-        if self.keys[key.P]:
+        if self.keys[key.Y]:
             # Increase the step size of Rotation
             if self.camera_rot_step_size >= np.pi / 2:
                 print('Current rotation step size for camera is the maximum!')
