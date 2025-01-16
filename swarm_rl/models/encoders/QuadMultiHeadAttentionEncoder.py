@@ -45,12 +45,12 @@ class QuadMultiHeadAttentionEncoder(Encoder):
             fc_layer(fc_encoder_layer, fc_encoder_layer),
             nonlinearity(cfg)
         )
-        self.separate_self_embed_layer = nn.Sequential(
-            fc_layer(self.self_obs_dim, fc_encoder_layer),
-            nonlinearity(cfg),
-            fc_layer(fc_encoder_layer, fc_encoder_layer),
-            nonlinearity(cfg)
-        )
+        # self.separate_self_embed_layer = nn.Sequential(
+        #     fc_layer(self.self_obs_dim, fc_encoder_layer),
+        #     nonlinearity(cfg),
+        #     fc_layer(fc_encoder_layer, fc_encoder_layer),
+        #     nonlinearity(cfg)
+        # )
 
         self.neighbor_embed_layer = nn.Sequential(
             fc_layer(self.all_neighbor_obs_dim, fc_encoder_layer),
@@ -120,12 +120,12 @@ class QuadMultiHeadAttentionEncoder(Encoder):
 
         # MLP Layer
         self.feed_forward = nn.Sequential(
-            fc_layer(4 * fc_encoder_layer, int(fc_encoder_layer)),
+            fc_layer(3 * fc_encoder_layer, 2 * fc_encoder_layer),
             nn.Tanh(),
-            fc_layer(int(fc_encoder_layer), int(0.25 * fc_encoder_layer)),
-            nn.Tanh(),
+            # fc_layer(int(fc_encoder_layer), int(0.25 * fc_encoder_layer)),
+            # nn.Tanh(),
         )
-        self.encoder_output_size = int(0.25 * fc_encoder_layer)
+        self.encoder_output_size = 2 * fc_encoder_layer
 
     def get_out_size(self):
         return self.encoder_output_size
@@ -149,22 +149,22 @@ class QuadMultiHeadAttentionEncoder(Encoder):
 
         # Attention
         self_embed = self.self_embed_layer(obs_self)
-        separate_self_embed = self.separate_self_embed_layer(obs_self)
+        # separate_self_embed = self.separate_self_embed_layer(obs_self)
 
         neighbor_embed = self.neighbor_embed_layer(obs_neighbor)
         obstacle_embed = self.obstacle_embed_layer(obs_obstacle)
 
-        self_embed_view = self_embed.view(batch_size, 1, -1)
+        # self_embed_view = self_embed.view(batch_size, 1, -1)
         neighbor_embed = neighbor_embed.view(batch_size, 1, -1)
         obstacle_embed = obstacle_embed.view(batch_size, 1, -1)
 
-        attn_embed = torch.cat((self_embed_view, neighbor_embed, obstacle_embed), dim=1)
+        attn_embed = torch.cat((neighbor_embed, obstacle_embed), dim=1)
 
         attn_embed, attn_score = self.attention_layer(attn_embed, attn_embed, attn_embed)
         attn_embed = attn_embed.view(batch_size, -1)
 
         # Concat
-        embeddings = torch.cat((separate_self_embed, attn_embed), dim=1)
+        embeddings = torch.cat((self_embed, attn_embed), dim=1)
         out = self.feed_forward(embeddings)
 
         return out
