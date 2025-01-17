@@ -4,7 +4,7 @@ from swarm_rl.runs.obstacles.multi_drones.quad_multi_obstacle_baseline import QU
 _params = ParamGrid(
     [
         ("seed", [0000, 3333]),
-        ("quads_attn_head_num", [4, 8]),
+        ("quads_attn_head_num", [4, 8, 16]),
     ]
 )
 
@@ -32,11 +32,11 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     # Model
     '--rnn_size=16 --quads_neighbor_hidden_size=16 --quads_obst_hidden_size=16 '
     # W & B
-    '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones --wandb_group=adir_ro_cmodel5_v1'
+    '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones --wandb_group=adir_ro_cmodel4_v2'
 )
 
 _experiment = Experiment(
-    "adir_ro_cmodel5_v1",
+    "adir_ro_cmodel4_v2",
     OBSTACLE_MODEL_CLI,
     _params.generate_params(randomize=False),
 )

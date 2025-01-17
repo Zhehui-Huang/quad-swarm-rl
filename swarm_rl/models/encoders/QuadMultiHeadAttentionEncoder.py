@@ -45,13 +45,6 @@ class QuadMultiHeadAttentionEncoder(Encoder):
             fc_layer(fc_encoder_layer, fc_encoder_layer),
             nonlinearity(cfg)
         )
-        self.separate_self_embed_layer = nn.Sequential(
-            fc_layer(self.self_obs_dim, fc_encoder_layer),
-            nonlinearity(cfg),
-            fc_layer(fc_encoder_layer, fc_encoder_layer),
-            nonlinearity(cfg)
-        )
-
         self.neighbor_embed_layer = nn.Sequential(
             fc_layer(self.all_neighbor_obs_dim, fc_encoder_layer),
             nonlinearity(cfg),
@@ -149,8 +142,6 @@ class QuadMultiHeadAttentionEncoder(Encoder):
 
         # Attention
         self_embed = self.self_embed_layer(obs_self)
-        separate_self_embed = self.separate_self_embed_layer(obs_self)
-
         neighbor_embed = self.neighbor_embed_layer(obs_neighbor)
         obstacle_embed = self.obstacle_embed_layer(obs_obstacle)
 
@@ -164,7 +155,7 @@ class QuadMultiHeadAttentionEncoder(Encoder):
         attn_embed = attn_embed.view(batch_size, -1)
 
         # Concat
-        embeddings = torch.cat((separate_self_embed, attn_embed), dim=1)
+        embeddings = torch.cat((self_embed, attn_embed), dim=1)
         out = self.feed_forward(embeddings)
 
         return out

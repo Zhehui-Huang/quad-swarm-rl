@@ -2,7 +2,6 @@ import numpy as np
 
 from gym_art.quadrotor_multi.scenarios.base import QuadrotorScenario
 from gym_art.quadrotor_multi.scenarios.obstacles.o_utils import get_goals_given_formation
-from gym_art.quadrotor_multi.scenarios.utils import get_goal_by_formation
 
 
 class Scenario_o_base(QuadrotorScenario):
@@ -134,7 +133,8 @@ class Scenario_o_base(QuadrotorScenario):
             pos_y = np.clip(a=pos_y, a_min=-room_depth / 2 + wall_pos_shift, a_max=room_depth / 2 - wall_pos_shift)
             pos_y += np.random.uniform(low=-0.2, high=0.2)
 
-            formation_center = np.array([pos_x, pos_y, 0.65])
+            pos_z = np.random.uniform(low=0.5, high=1.0)
+            formation_center = np.array([pos_x, pos_y, pos_z])
             goal_pos_list = get_goals_given_formation(
                 formation=formation, dist_range=[0.0, 0.0], formation_center=formation_center, num_agents=num_agents
             )
@@ -149,7 +149,8 @@ class Scenario_o_base(QuadrotorScenario):
             x, y = goal_item[0], goal_item[1]
             x = np.clip(a=x, a_min=-room_width / 2 + 0.5, a_max=room_width / 2 - 0.5)
             y = np.clip(a=y, a_min=-room_depth / 2 + 0.5, a_max=room_depth / 2 - 0.5)
-            goal_pos.append(np.array([x, y, 0.65]))
+            z = np.random.uniform(low=0.5, high=1.0)
+            goal_pos.append(np.array([x, y, z]))
 
         return np.array(start_pos), np.array(goal_pos)
 
@@ -204,7 +205,9 @@ class Scenario_o_base(QuadrotorScenario):
             pos_y = np.clip(a=pos_y, a_min=-room_depth / 2 + wall_pos_shift, a_max=room_depth / 2 - wall_pos_shift)
             pos_y += np.random.uniform(low=-0.2, high=0.2)
 
-            formation_center = np.array([pos_x, pos_y, 0.65])
+            pos_z = np.random.uniform(low=0.5, high=1.0)
+
+            formation_center = np.array([pos_x, pos_y, pos_z])
             goal_pos_list = get_goals_given_formation(
                 formation=formation, dist_range=[0.0, 0.0], formation_center=formation_center, num_agents=num_agents
             )
@@ -219,7 +222,8 @@ class Scenario_o_base(QuadrotorScenario):
             x, y = goal_item[0], goal_item[1]
             x = np.clip(a=x, a_min=-room_width / 2 + 0.5, a_max=room_width / 2 - 0.5)
             y = np.clip(a=y, a_min=-room_depth / 2 + 0.5, a_max=room_depth / 2 - 0.5)
-            goal_pos.append(np.array([x, y, 0.65]))
+            z = np.random.uniform(low=0.5, high=1.0)
+            goal_pos.append(np.array([x, y, z]))
 
         return np.array(start_pos), np.array(goal_pos)
 
@@ -244,12 +248,12 @@ class Scenario_o_base(QuadrotorScenario):
 
         if goal_scenario_flag:
             end_goal_arr = self.sub_generate_pos_v2(
-                num_agents=1, obst_map=obst_map, cell_centers=cell_centers, z_value=0.65
+                num_agents=1, obst_map=obst_map, cell_centers=cell_centers
             )
             end_goal_arr = np.repeat(end_goal_arr, 8, axis=0)
         else:
             end_goal_arr = self.sub_generate_pos_v2(
-                num_agents=num_agents, obst_map=obst_map, cell_centers=cell_centers, z_value=0.65
+                num_agents=num_agents, obst_map=obst_map, cell_centers=cell_centers
             )
         return start_pos_arr, end_goal_arr
 
@@ -283,7 +287,7 @@ class Scenario_o_base(QuadrotorScenario):
             if z_value is None:
                 pos_z = np.random.uniform(low=0.5, high=1.0)
             else:
-                pos_z = 0.65
+                pos_z = z_value
 
             generated_points.append(np.array([pos_x, pos_y, pos_z]))
 
