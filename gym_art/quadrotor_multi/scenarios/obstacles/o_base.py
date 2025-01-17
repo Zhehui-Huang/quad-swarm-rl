@@ -142,14 +142,17 @@ class Scenario_o_base(QuadrotorScenario):
             goal_all_pairs = np.array(np.meshgrid(pos_x_grids, goal_y_grids)).T.reshape(-1, 2)
             goal_selected_pairs = goal_all_pairs[np.random.choice(goal_all_pairs.shape[0], num_agents, replace=False)]
             goal_noise = np.random.uniform(low=-noise_size, high=noise_size, size=selected_pairs.shape)
-            goal_pos_list = goal_selected_pairs + goal_noise
+            tmp_goal_pos_list = goal_selected_pairs + goal_noise
+            goal_pos_list = []
+            for goal_pos in tmp_goal_pos_list:
+                pos_z = np.random.uniform(low=0.5, high=1.0)
+                goal_pos_list.append([goal_pos[0], goal_pos[1], pos_z])
 
         goal_pos = []
         for goal_item in goal_pos_list:
-            x, y = goal_item[0], goal_item[1]
+            x, y, z = goal_item[0], goal_item[1], goal_item[2]
             x = np.clip(a=x, a_min=-room_width / 2 + 0.5, a_max=room_width / 2 - 0.5)
             y = np.clip(a=y, a_min=-room_depth / 2 + 0.5, a_max=room_depth / 2 - 0.5)
-            z = np.random.uniform(low=0.5, high=1.0)
             goal_pos.append(np.array([x, y, z]))
 
         return np.array(start_pos), np.array(goal_pos)
@@ -215,14 +218,17 @@ class Scenario_o_base(QuadrotorScenario):
             goal_all_pairs = np.array(np.meshgrid(goal_x_grids, pos_y_grids)).T.reshape(-1, 2)
             goal_selected_pairs = goal_all_pairs[np.random.choice(goal_all_pairs.shape[0], num_agents, replace=False)]
             goal_noise = np.random.uniform(low=-noise_size, high=noise_size, size=selected_pairs.shape)
-            goal_pos_list = goal_selected_pairs + goal_noise
+            tmp_goal_pos_list = goal_selected_pairs + goal_noise
+            goal_pos_list = []
+            for goal_pos in tmp_goal_pos_list:
+                pos_z = np.random.uniform(low=0.5, high=1.0)
+                goal_pos_list.append([goal_pos[0], goal_pos[1], pos_z])
 
         goal_pos = []
         for goal_item in goal_pos_list:
-            x, y = goal_item[0], goal_item[1]
+            x, y, z = goal_item[0], goal_item[1], goal_item[2]
             x = np.clip(a=x, a_min=-room_width / 2 + 0.5, a_max=room_width / 2 - 0.5)
             y = np.clip(a=y, a_min=-room_depth / 2 + 0.5, a_max=room_depth / 2 - 0.5)
-            z = np.random.uniform(low=0.5, high=1.0)
             goal_pos.append(np.array([x, y, z]))
 
         return np.array(start_pos), np.array(goal_pos)
