@@ -4,7 +4,9 @@ from swarm_rl.runs.obstacles.multi_drones.quad_multi_obstacle_baseline import QU
 _params = ParamGrid(
     [
         ("seed", [0000, 3333]),
-        ("quads_attn_head_num", [4, 8, 16]),
+        ("quads_attn_head_num", [8]),
+        ("quads_obst_density_max", [0.8]),
+        ("rnn_size", [16, 24, 32]),
     ]
 )
 
@@ -15,7 +17,7 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     '--quads_obst_collision_prox_weight=0.05 --quads_obst_collision_prox_min=0.01 --quads_obst_collision_prox_max=0.05 '
     '--quads_obst_density=0.2 --quads_obst_min_gap_threshold=0.4 '
     # Random
-    '--quads_obst_density_random=True --quads_obst_density_min=0.2 --quads_obst_density_max=0.4 '
+    '--quads_obst_density_random=True --quads_obst_density_min=0.2 '
     '--quads_obst_size_random=True --quads_obst_size_min=0.2 --quads_obst_size_max=0.4 '
     '--quads_obst_noise=0.05 '
     # SBC
@@ -30,13 +32,12 @@ OBSTACLE_MODEL_CLI = QUAD_BASELINE_CLI_8 + (
     # Neighbor related
     '--quads_neighbor_obs_update_freq=50 '
     # Model
-    '--rnn_size=16 --quads_neighbor_hidden_size=16 --quads_obst_hidden_size=16 '
     # W & B
-    '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones --wandb_group=adir_ro_cmodel4_v2'
+    '--with_wandb=True --wandb_project=Quad-Swarm-RL --wandb_user=multi-drones --wandb_group=adir_ro_cmodel4_v3'
 )
 
 _experiment = Experiment(
-    "adir_ro_cmodel4_v2",
+    "adir_ro_cmodel4_v3",
     OBSTACLE_MODEL_CLI,
     _params.generate_params(randomize=False),
 )

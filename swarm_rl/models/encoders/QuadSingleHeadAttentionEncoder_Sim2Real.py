@@ -21,7 +21,6 @@ class QuadSingleHeadAttentionEncoder_Sim2Real(QuadMultiHeadAttentionEncoder):
         else:
             raise NotImplementedError(f'Layer {cfg.quads_obs_repr} not supported!')
 
-        self.neighbor_hidden_size = cfg.quads_neighbor_hidden_size
         self.use_obstacles = cfg.quads_use_obstacles
 
         if cfg.quads_neighbor_visible_num == -1:
