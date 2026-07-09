@@ -1,20 +1,32 @@
 import copy
 
-import torch
-from sample_factory.algo.learning.learner import Learner
-from sample_factory.model.actor_critic import create_actor_critic
+import gymnasium as gym
+import numpy as np
 
 from gym_art.quadrotor_multi.quad_experience_replay import ExperienceReplayWrapper
 from swarm_rl.env_wrappers.compatibility import QuadEnvCompatibility
+from swarm_rl.env_wrappers.projection_map import ProjectionMapWrapper
 from swarm_rl.env_wrappers.reward_shaping import DEFAULT_QUAD_REWARD_SHAPING, QuadsRewardShapingWrapper
-from swarm_rl.env_wrappers.v_value_map import V_ValueMapWrapper
 
 
 class AnnealSchedule:
-    def __init__(self, coeff_name, final_value, anneal_env_steps):
+    def __init__(self, coeff_name, final_value, anneal_env_steps, initial_value=0.0):
         self.coeff_name = coeff_name
         self.final_value = final_value
         self.anneal_env_steps = anneal_env_steps
+        self.initial_value = initial_value
+
+    def value_at(self, env_steps):
+        progress = min(max(float(env_steps) / self.anneal_env_steps, 0.0), 1.0)
+        return self.initial_value + progress * (self.final_value - self.initial_value)
+
+
+class BoundedActionWrapper(gym.Wrapper):
+    """Keep sampled continuous actions inside the environment action space."""
+
+    def step(self, action):
+        clipped_action = np.clip(action, self.action_space.low, self.action_space.high)
+        return self.env.step(clipped_action)
 
 
 def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
@@ -43,6 +55,11 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         # Obstacle
         use_obstacles=cfg.quads_use_obstacles, obst_density=cfg.quads_obst_density, obst_size=cfg.quads_obst_size,
         obst_spawn_area=cfg.quads_obst_spawn_area,
+        obstacle_scan_resolution=cfg.quads_obstacle_scan_resolution,
+        obstacle_obs_type=cfg.quads_obstacle_obs_type,
+        lidar_sector_angle=cfg.quads_lidar_sector_angle,
+        lidar_sector_samples=cfg.quads_lidar_sector_samples,
+        obst_min_clearance=cfg.quads_obst_min_clearance,
 
         # Aerodynamics
         use_downwash=cfg.quads_use_downwash,
@@ -59,7 +76,16 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
         # Quadrotor Specific (Do Not Change)
         dynamics_params=quad, raw_control=raw_control, raw_control_zero_middle=raw_control_zero_middle,
         dynamics_randomize_every=dyn_randomize_every, dynamics_change=dynamics_change, dyn_sampler_1=sampler_1,
-        sense_noise=sense_noise, init_random_state=False,
+        sense_noise=sense_noise, init_random_state=False, control_type=cfg.quads_control_type,
+        velocity_yaw_max_speed=cfg.quads_velocity_yaw_max_speed,
+        avoid_radius=cfg.quads_avoid_radius,
+        cbf_safe_distance=cfg.quads_cbf_safe_distance,
+        cbf_alpha=cfg.quads_cbf_alpha,
+        avoid_lidar_filter_alpha=cfg.quads_avoid_lidar_filter_alpha,
+        avoid_activation_hysteresis=cfg.quads_avoid_activation_hysteresis,
+        avoid_floor_guard_z=cfg.quads_avoid_floor_guard_z,
+        avoid_floor_guard_kp=cfg.quads_avoid_floor_guard_kp,
+        avoid_floor_guard_max_vz=cfg.quads_avoid_floor_guard_max_vz,
         # Rendering
         render_mode=render_mode,
     )
@@ -74,38 +100,76 @@ def make_quadrotor_env_multi(cfg, render_mode=None, **kwargs):
     reward_shaping['quad_rewards']['quadcol_bin'] = cfg.quads_collision_reward
     reward_shaping['quad_rewards']['quadcol_bin_smooth_max'] = cfg.quads_collision_smooth_max_penalty
     reward_shaping['quad_rewards']['quadcol_bin_obst'] = cfg.quads_obst_collision_reward
+    reward_shaping['quad_rewards']['orient'] = cfg.quads_orient_reward
+    reward_shaping['quad_rewards']['spin'] = cfg.quads_spin_reward
+    reward_shaping['quad_rewards']['vel'] = cfg.quads_vel_reward
+    reward_shaping['quad_rewards']['vel_limit'] = cfg.quads_vel_penalty_limit
+    reward_shaping['quad_rewards']['progress'] = cfg.quads_progress_reward
+    reward_shaping['quad_rewards']['success'] = cfg.quads_success_reward
+    reward_shaping['quad_rewards']['first_success'] = cfg.quads_first_success_reward
+    reward_shaping['quad_rewards']['z'] = cfg.quads_z_reward
+    reward_shaping['quad_rewards']['stable_z'] = cfg.quads_stable_z_reward
+    reward_shaping['quad_rewards']['stable_spin'] = cfg.quads_stable_spin_reward
+    reward_shaping['quad_rewards']['floor_stall'] = cfg.quads_floor_stall_reward
+    reward_shaping['quad_rewards']['room_floor'] = cfg.quads_room_floor_reward
+    reward_shaping['quad_rewards']['room_wall'] = cfg.quads_room_wall_reward
+    reward_shaping['quad_rewards']['room_ceiling'] = cfg.quads_room_ceiling_reward
 
     # this is annealed by the reward shaping wrapper
     if cfg.anneal_collision_steps > 0:
-        reward_shaping['quad_rewards']['quadcol_bin'] = 0.0
-        reward_shaping['quad_rewards']['quadcol_bin_smooth_max'] = 0.0
-        reward_shaping['quad_rewards']['quadcol_bin_obst'] = 0.0
+        initial_ratio = cfg.anneal_collision_initial_ratio
+        if not 0.0 <= initial_ratio <= 1.0:
+            raise ValueError("anneal_collision_initial_ratio must be in [0, 1]")
+        reward_shaping['quad_rewards']['quadcol_bin'] = cfg.quads_collision_reward * initial_ratio
+        reward_shaping['quad_rewards']['quadcol_bin_smooth_max'] = \
+            cfg.quads_collision_smooth_max_penalty * initial_ratio
+        reward_shaping['quad_rewards']['quadcol_bin_obst'] = cfg.quads_obst_collision_reward * initial_ratio
+        reward_shaping['quad_rewards']['orient'] = cfg.quads_orient_reward
+        reward_shaping['quad_rewards']['spin'] = cfg.quads_spin_reward
+        reward_shaping['quad_rewards']['vel'] = cfg.quads_vel_reward * initial_ratio
+        reward_shaping['quad_rewards']['vel_limit'] = cfg.quads_vel_penalty_limit
+        reward_shaping['quad_rewards']['progress'] = cfg.quads_progress_reward
+        reward_shaping['quad_rewards']['success'] = cfg.quads_success_reward
+        reward_shaping['quad_rewards']['first_success'] = cfg.quads_first_success_reward
+        reward_shaping['quad_rewards']['z'] = cfg.quads_z_reward
+        reward_shaping['quad_rewards']['stable_z'] = cfg.quads_stable_z_reward
+        reward_shaping['quad_rewards']['stable_spin'] = cfg.quads_stable_spin_reward
+        reward_shaping['quad_rewards']['floor_stall'] = cfg.quads_floor_stall_reward
+        reward_shaping['quad_rewards']['room_floor'] = cfg.quads_room_floor_reward
+        reward_shaping['quad_rewards']['room_wall'] = cfg.quads_room_wall_reward
+        reward_shaping['quad_rewards']['room_ceiling'] = cfg.quads_room_ceiling_reward
         annealing = [
-            AnnealSchedule('quadcol_bin', cfg.quads_collision_reward, cfg.anneal_collision_steps),
+            AnnealSchedule(
+                'quadcol_bin', cfg.quads_collision_reward, cfg.anneal_collision_steps,
+                cfg.quads_collision_reward * initial_ratio,
+            ),
             AnnealSchedule('quadcol_bin_smooth_max', cfg.quads_collision_smooth_max_penalty,
-                           cfg.anneal_collision_steps),
-            AnnealSchedule('quadcol_bin_obst', cfg.quads_obst_collision_reward, cfg.anneal_collision_steps),
+                           cfg.anneal_collision_steps,
+                           cfg.quads_collision_smooth_max_penalty * initial_ratio),
+            AnnealSchedule(
+                'quadcol_bin_obst', cfg.quads_obst_collision_reward, cfg.anneal_collision_steps,
+                cfg.quads_obst_collision_reward * initial_ratio,
+            ),
+            AnnealSchedule(
+                'vel', cfg.quads_vel_reward, cfg.anneal_collision_steps,
+                cfg.quads_vel_reward * initial_ratio,
+            ),
         ]
     else:
         annealing = None
 
     env = QuadsRewardShapingWrapper(env, reward_shaping_scheme=reward_shaping, annealing=annealing,
                                     with_pbt=cfg.with_pbt)
+    env = BoundedActionWrapper(env)
     env = QuadEnvCompatibility(env)
+    env = ProjectionMapWrapper(
+        env,
+        enabled=cfg.visualize_projection_map or cfg.visualize_obstacle_point_cloud,
+        show_obstacle_point_cloud=cfg.visualize_obstacle_point_cloud,
+    )
 
     if cfg.visualize_v_value:
-        actor_critic = create_actor_critic(cfg, env.observation_space, env.action_space)
-        actor_critic.eval()
-
-        device = torch.device("cpu" if cfg.device == "cpu" else "cuda")
-        actor_critic.model_to_device(device)
-
-        policy_id = cfg.policy_index
-        name_prefix = dict(latest="checkpoint", best="best")[cfg.load_checkpoint_kind]
-        checkpoints = Learner.get_checkpoints(Learner.checkpoint_dir(cfg, policy_id), f"{name_prefix}_*")
-        checkpoint_dict = Learner.load_checkpoint(checkpoints, device)
-        actor_critic.load_state_dict(checkpoint_dict["model"])
-        env = V_ValueMapWrapper(env, actor_critic)
+        raise ValueError("V-value map visualization is not included in this repository.")
 
     return env
 

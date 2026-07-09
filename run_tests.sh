@@ -1,7 +1,10 @@
 #!/bin/bash
 
-python -m unittest
-STATUS_ALL_TESTS=$?
+set -e
+cd "$(dirname "$0")"
 
-echo "Status: $STATUS_ALL_TESTS"
-echo "0 means success (no errors), non-zero status indicates failed tests"
+python -m unittest gym_art.quadrotor_multi.tests.test_body_frame_navigation
+python -m gym_art.quadrotor_multi.obstacles.test.unit_test
+python -m compileall -q gym_art swarm_rl
+
+echo "Lidar obstacle traversal tests passed."

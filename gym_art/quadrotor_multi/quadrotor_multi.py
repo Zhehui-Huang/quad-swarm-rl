@@ -11,7 +11,7 @@ from gym_art.quadrotor_multi.collisions.obstacles import perform_collision_with_
 from gym_art.quadrotor_multi.collisions.quadrotors import calculate_collision_matrix, \
     calculate_drone_proximity_penalties, perform_collision_between_drones
 from gym_art.quadrotor_multi.collisions.room import perform_collision_with_wall, perform_collision_with_ceiling
-from gym_art.quadrotor_multi.obstacles.utils import get_cell_centers
+from gym_art.quadrotor_multi.obstacles.utils import get_cell_centers, sample_spaced_obstacle_indices
 from gym_art.quadrotor_multi.quad_utils import QUADS_OBS_REPR, QUADS_NEIGHBOR_OBS_TYPE
 
 from gym_art.quadrotor_multi.obstacles.obstacles import MultiObstacles
@@ -26,7 +26,8 @@ class QuadrotorEnvMulti(gym.Env):
                  neighbor_visible_num, neighbor_obs_type, collision_hitbox_radius, collision_falloff_radius,
 
                  # Obstacle
-                 use_obstacles, obst_density, obst_size, obst_spawn_area,
+                 use_obstacles, obst_density, obst_size, obst_spawn_area, obstacle_scan_resolution,
+                 obstacle_obs_type,
 
                  # Aerodynamics, Numba Speed Up, Scenarios, Room, Replay Buffer, Rendering
                  use_downwash, use_numba, quads_mode, room_dims, use_replay_buffer, quads_view_mode,
@@ -36,6 +37,13 @@ class QuadrotorEnvMulti(gym.Env):
                  dynamics_params, raw_control, raw_control_zero_middle,
                  dynamics_randomize_every, dynamics_change, dyn_sampler_1,
                  sense_noise, init_random_state,
+                 obst_min_clearance=0.0,
+                 lidar_sector_angle=0.0, lidar_sector_samples=1,
+                 control_type='velocity_yaw', velocity_yaw_max_speed=3.0,
+                 avoid_radius=0.8, cbf_safe_distance=0.5, cbf_alpha=1.5,
+                 avoid_lidar_filter_alpha=0.35, avoid_activation_hysteresis=0.08,
+                 avoid_floor_guard_z=1.2, avoid_floor_guard_kp=1.5,
+                 avoid_floor_guard_max_vz=0.8,
                  # Rendering
                  render_mode='human'
                  ):
@@ -43,6 +51,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Predefined Parameters
         self.num_agents = num_agents
+        self.velocity_yaw_max_speed = velocity_yaw_max_speed
         obs_self_size = QUADS_OBS_REPR[obs_repr]
         if neighbor_visible_num == -1:
             self.num_use_neighbor_obs = self.num_agents - 1
@@ -70,6 +79,12 @@ class QuadrotorEnvMulti(gym.Env):
                 neighbor_obs_type=neighbor_obs_type, num_use_neighbor_obs=self.num_use_neighbor_obs,
                 # Obstacle
                 use_obstacles=use_obstacles,
+                control_type=control_type, velocity_yaw_max_speed=velocity_yaw_max_speed,
+                avoid_radius=avoid_radius, cbf_safe_distance=cbf_safe_distance,
+                cbf_alpha=cbf_alpha, avoid_lidar_filter_alpha=avoid_lidar_filter_alpha,
+                avoid_activation_hysteresis=avoid_activation_hysteresis,
+                avoid_floor_guard_z=avoid_floor_guard_z, avoid_floor_guard_kp=avoid_floor_guard_kp,
+                avoid_floor_guard_max_vz=avoid_floor_guard_max_vz,
             )
             self.envs.append(e)
 
@@ -89,7 +104,10 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Reward
         self.rew_coeff = dict(
-            pos=1., effort=0.05, action_change=0., crash=1., orient=1., yaw=0., rot=0., attitude=0., spin=0.1, vel=0.,
+            pos=1., effort=0.05, action_change=0., crash=1., orient=1., yaw=0., rot=0., attitude=0., spin=0.1, vel=0., z=0.,
+            vel_limit=3.0, stable_z=0.0, stable_spin=0.0, progress=0.0, success=0.0, floor_stall=0.0,
+            first_success=10.0,
+            room_floor=0.0, room_wall=0.0, room_ceiling=0.0,
             quadcol_bin=5., quadcol_bin_smooth_max=4., quadcol_bin_obst=5.
         )
         rew_coeff_orig = copy.deepcopy(self.rew_coeff)
@@ -128,6 +146,11 @@ class QuadrotorEnvMulti(gym.Env):
             self.num_obstacles = int(obst_density * obst_spawn_area[0] * obst_spawn_area[1])
             self.obst_map = None
             self.obst_size = obst_size
+            self.obst_min_clearance = obst_min_clearance
+            self.obstacle_scan_resolution = obstacle_scan_resolution
+            self.obstacle_obs_type = obstacle_obs_type
+            self.lidar_sector_angle = lidar_sector_angle
+            self.lidar_sector_samples = lidar_sector_samples
 
             # Log more info
             self.distance_to_goal_3_5 = 0
@@ -159,6 +182,7 @@ class QuadrotorEnvMulti(gym.Env):
         self.collisions_floor_per_episode = 0
         self.collisions_wall_per_episode = 0
         self.collisions_ceiling_per_episode = 0
+        self.time_since_last_collision = np.zeros(self.num_agents)
 
         self.prev_crashed_walls = []
         self.prev_crashed_ceiling = []
@@ -198,6 +222,24 @@ class QuadrotorEnvMulti(gym.Env):
         # Log
         self.distance_to_goal = [[] for _ in range(len(self.envs))]
         self.reached_goal = [False for _ in range(len(self.envs))]
+        self.goal_reach_time = np.full(self.num_agents, np.nan)
+        self.path_length = np.zeros(self.num_agents)
+        self.prev_path_pos = np.zeros((self.num_agents, 3))
+        self.prev_metric_vel = np.zeros((self.num_agents, 3))
+        self.velocity_delta_sum = np.zeros(self.num_agents)
+        self.velocity_delta_count = np.zeros(self.num_agents)
+        self.min_obstacle_distance = np.full(self.num_agents, np.inf)
+        self.near_obstacle_steps = np.zeros(self.num_agents)
+        self.stuck_steps = np.zeros(self.num_agents)
+        self.stuck_windows = np.zeros(self.num_agents)
+        self.start_goal_distance = np.zeros(self.num_agents)
+        self.target_reached_count = np.zeros(self.num_agents)
+        self.target_collision_count = np.zeros(self.num_agents)
+        self.segment_collision = np.zeros(self.num_agents, dtype=bool)
+        self.segment_path_length = np.zeros(self.num_agents)
+        self.segment_start_time = np.zeros(self.num_agents)
+        self.segment_time_sum = np.zeros(self.num_agents)
+        self.segment_path_sum = np.zeros(self.num_agents)
 
         # Log metric
         self.agent_col_agent = np.ones(self.num_agents)
@@ -208,6 +250,21 @@ class QuadrotorEnvMulti(gym.Env):
 
     def all_dynamics(self):
         return tuple(e.dynamics for e in self.envs)
+
+    def quad_yaw_ray_rotations(self):
+        rotations = np.zeros((self.num_agents, 2, 2), dtype=np.float64)
+        for i, env in enumerate(self.envs):
+            body_x = env.dynamics.rot[:2, 0]
+            norm = np.linalg.norm(body_x)
+            if norm < 1e-6:
+                c, s = 1.0, 0.0
+            else:
+                c, s = body_x[0] / norm, body_x[1] / norm
+            rotations[i, 0, 0] = c
+            rotations[i, 0, 1] = -s
+            rotations[i, 1, 0] = s
+            rotations[i, 1, 1] = c
+        return rotations
 
     def get_rel_pos_vel_item(self, env_id, indices=None):
         i = env_id
@@ -308,9 +365,16 @@ class QuadrotorEnvMulti(gym.Env):
         cell_centers = get_cell_centers(obst_area_length=obst_area_length, obst_area_width=obst_area_width,
                                         grid_size=grid_size)
 
-        room_map = [i for i in range(0, num_room_grids)]
+        candidate_positions = []
+        for obst_id in range(num_room_grids):
+            rid, cid = divmod(obst_id, obst_area_width)
+            candidate_positions.append(cell_centers[rid + int(obst_area_length / grid_size) * cid])
 
-        obst_index = np.random.choice(a=room_map, size=int(num_room_grids * self.obst_density), replace=False)
+        num_obstacles = int(num_room_grids * self.obst_density)
+        min_center_distance = self.obst_size + self.obst_min_clearance
+        obst_index = sample_spaced_obstacle_indices(
+            candidate_positions, num_obstacles, min_center_distance=min_center_distance)
+        self.num_obstacles = len(obst_index)
 
         obst_pos_arr = []
         # 0: No Obst, 1: Obst
@@ -346,10 +410,26 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Scenario reset
         if self.use_obstacles:
-            self.obstacles = MultiObstacles(obstacle_size=self.obst_size, quad_radius=self.quad_arm)
+            self.obstacles = MultiObstacles(
+                obstacle_size=self.obst_size,
+                quad_radius=self.quad_arm,
+                resolution=self.obstacle_scan_resolution,
+                room_dims=self.room_dims,
+                include_room_bounds=self.obstacle_obs_type == "lidar",
+                lidar_sector_angle=self.lidar_sector_angle,
+                lidar_sector_samples=self.lidar_sector_samples,
+            )
             self.obst_map, obst_pos_arr, cell_centers = self.obst_generation_given_density()
+            if hasattr(self.scenario, "goal_success_first"):
+                self.scenario.goal_success_first = self.rew_coeff.get("first_success", self.scenario.goal_success_first)
+            if hasattr(self.scenario, "goal_success_later"):
+                self.scenario.goal_success_later = self.rew_coeff.get("success", self.scenario.goal_success_later)
             self.scenario.reset(obst_map=self.obst_map, cell_centers=cell_centers)
         else:
+            if hasattr(self.scenario, "goal_success_first"):
+                self.scenario.goal_success_first = self.rew_coeff.get("first_success", self.scenario.goal_success_first)
+            if hasattr(self.scenario, "goal_success_later"):
+                self.scenario.goal_success_later = self.rew_coeff.get("success", self.scenario.goal_success_later)
             self.scenario.reset()
 
         # Replay buffer
@@ -365,6 +445,8 @@ class QuadrotorEnvMulti(gym.Env):
             else:
                 e.spawn_point = self.scenario.spawn_points[i]
             e.rew_coeff = self.rew_coeff
+            if hasattr(self.scenario, "goal_success_first"):
+                self.rew_coeff["success"] = self.scenario.goal_success_first
 
             observation = e.reset()
             obs.append(observation)
@@ -377,7 +459,9 @@ class QuadrotorEnvMulti(gym.Env):
         # Obstacles
         if self.use_obstacles:
             quads_pos = np.array([e.dynamics.pos for e in self.envs])
-            obs = self.obstacles.reset(obs=obs, quads_pos=quads_pos, pos_arr=obst_pos_arr)
+            obs = self.obstacles.reset(
+                obs=obs, quads_pos=quads_pos, pos_arr=obst_pos_arr,
+                ray_rotations=self.quad_yaw_ray_rotations())
             self.obst_quad_collisions_per_episode = self.obst_quad_collisions_after_settle = 0
             self.prev_obst_quad_collisions = []
             self.distance_to_goal_3_5 = 0
@@ -394,6 +478,7 @@ class QuadrotorEnvMulti(gym.Env):
         self.prev_crashed_walls = []
         self.prev_crashed_ceiling = []
         self.prev_crashed_room = []
+        self.time_since_last_collision = np.zeros(self.num_agents)
 
         # Log
         # # Final Distance (1s / 3s / 5s)
@@ -401,6 +486,30 @@ class QuadrotorEnvMulti(gym.Env):
         self.agent_col_agent = np.ones(self.num_agents)
         self.agent_col_obst = np.ones(self.num_agents)
         self.reached_goal = [False for _ in range(len(self.envs))]
+        self.goal_reach_time = np.full(self.num_agents, np.nan)
+        self.path_length = np.zeros(self.num_agents)
+        self.prev_path_pos = self.pos.copy()
+        self.prev_metric_vel = np.zeros((self.num_agents, 3))
+        self.velocity_delta_sum = np.zeros(self.num_agents)
+        self.velocity_delta_count = np.zeros(self.num_agents)
+        self.min_obstacle_distance = np.full(self.num_agents, np.inf)
+        self.near_obstacle_steps = np.zeros(self.num_agents)
+        self.stuck_steps = np.zeros(self.num_agents)
+        self.stuck_windows = np.zeros(self.num_agents)
+        self.start_goal_distance = np.array([
+            np.linalg.norm(e.goal - e.dynamics.pos) for e in self.envs
+        ])
+        self.target_reached_count = np.zeros(self.num_agents)
+        self.target_collision_count = np.zeros(self.num_agents)
+        self.segment_collision = np.zeros(self.num_agents, dtype=bool)
+        self.segment_path_length = np.zeros(self.num_agents)
+        self.segment_start_time = np.zeros(self.num_agents)
+        self.segment_time_sum = np.zeros(self.num_agents)
+        self.segment_path_sum = np.zeros(self.num_agents)
+        if self.use_obstacles and self.obstacles is not None:
+            initial_clearance = self.obstacles.sdf_obs(
+                self.pos, ray_rotations=self.quad_yaw_ray_rotations())
+            self.min_obstacle_distance = np.min(initial_clearance, axis=1)
 
         # Rendering
         if self.quads_render:
@@ -413,16 +522,45 @@ class QuadrotorEnvMulti(gym.Env):
     def step(self, actions):
         obs, rewards, dones, infos = [], [], [], []
 
+        obstacle_obs = None
+        if self.use_obstacles and self.obstacles is not None:
+            obstacle_obs = self.obstacles.sdf_obs(self.pos, ray_rotations=self.quad_yaw_ray_rotations())
+
         for i, a in enumerate(actions):
             self.envs[i].rew_coeff = self.rew_coeff
 
-            observation, reward, done, info = self.envs[i].step(a)
+            local_obs = obstacle_obs[i] if obstacle_obs is not None else None
+            observation, reward, done, info = self.envs[i].step(a, observation=local_obs)
             obs.append(observation)
             rewards.append(reward)
             dones.append(done)
             infos.append(info)
 
             self.pos[i, :] = self.envs[i].dynamics.pos
+            self.vel[i, :] = self.envs[i].dynamics.vel
+            self.omega[i, :] = self.envs[i].dynamics.omega
+
+            self.path_length[i] += np.linalg.norm(self.pos[i] - self.prev_path_pos[i])
+            self.segment_path_length[i] += np.linalg.norm(self.pos[i] - self.prev_path_pos[i])
+            vel_delta = np.linalg.norm(self.vel[i] - self.prev_metric_vel[i]) / self.control_dt
+            self.velocity_delta_sum[i] += vel_delta
+            self.velocity_delta_count[i] += 1
+
+            dist_to_goal = np.linalg.norm(self.envs[i].goal - self.pos[i])
+            if info["rewards"].get("rewraw_success", 0.0) > 0.0 and np.isnan(self.goal_reach_time[i]):
+                self.goal_reach_time[i] = self.envs[i].tick * self.envs[i].dt
+
+            recent_window = int(self.control_freq)
+            min_recent = min(self.distance_to_goal[i][-recent_window:]) if self.distance_to_goal[i] else dist_to_goal
+            progress_1s = min_recent - dist_to_goal
+            if np.linalg.norm(self.vel[i]) < 0.08 and progress_1s < 0.03 and not self.reached_goal[i]:
+                self.stuck_steps[i] += 1
+            else:
+                if self.stuck_steps[i] >= 3.0 * self.control_freq:
+                    self.stuck_windows[i] += 1
+                self.stuck_steps[i] = 0
+            self.prev_path_pos[i] = self.pos[i]
+            self.prev_metric_vel[i] = self.vel[i]
 
         # 1. Calculate collisions: 1) between drones 2) with obstacles 3) with room
         # 1) Collisions between drones
@@ -487,6 +625,12 @@ class QuadrotorEnvMulti(gym.Env):
                 # And obst_quad_last_step_unique_collisions only include drones' id
                 rew_obst_quad_collisions_raw[self.curr_quad_col] = -1.0
 
+            current_clearance = self.obstacles.sdf_obs(
+                self.pos, ray_rotations=self.quad_yaw_ray_rotations())
+            min_current_clearance = np.min(current_clearance, axis=1)
+            self.min_obstacle_distance = np.minimum(self.min_obstacle_distance, min_current_clearance)
+            self.near_obstacle_steps += (min_current_clearance < 0.2).astype(float)
+
         # 3) Collisions with room
         floor_crash_list, wall_crash_list, ceiling_crash_list = self.calculate_room_collision()
         room_crash_list = np.unique(np.concatenate([floor_crash_list, wall_crash_list, ceiling_crash_list]))
@@ -518,21 +662,78 @@ class QuadrotorEnvMulti(gym.Env):
             rew_collisions_obst_quad = self.rew_coeff["quadcol_bin_obst"] * rew_obst_quad_collisions_raw
 
         # 3) With room
-        # # TODO: reward penalty
+        rew_room_floor_raw = np.zeros(self.num_agents)
+        rew_room_wall_raw = np.zeros(self.num_agents)
+        rew_room_ceiling_raw = np.zeros(self.num_agents)
+        if len(floor_crash_list) > 0:
+            rew_room_floor_raw[floor_crash_list] = -1.0
+        if len(wall_crash_list) > 0:
+            rew_room_wall_raw[wall_crash_list] = -1.0
+        if len(ceiling_crash_list) > 0:
+            rew_room_ceiling_raw[ceiling_crash_list] = -1.0
+        rew_room_floor = self.rew_coeff["room_floor"] * rew_room_floor_raw
+        rew_room_wall = self.rew_coeff["room_wall"] * rew_room_wall_raw
+        rew_room_ceiling = self.rew_coeff["room_ceiling"] * rew_room_ceiling_raw
         if self.envs[0].tick >= self.collisions_grace_period_steps:
             self.collisions_room_per_episode += len(room_crash_list)
             self.collisions_floor_per_episode += len(floor_crash_list)
             self.collisions_wall_per_episode += len(wall_crash_list)
             self.collisions_ceiling_per_episode += len(ceiling_crash_list)
 
+        current_room_crashes = np.unique(np.concatenate([floor_crash_list, wall_crash_list, ceiling_crash_list]))
+        current_collision_flags = np.zeros(self.num_agents, dtype=bool)
+        current_collision_flags = np.logical_or(current_collision_flags, rew_collisions_raw < 0)
+        if self.use_obstacles:
+            current_collision_flags = np.logical_or(current_collision_flags, rew_obst_quad_collisions_raw < 0)
+        for agent_id in current_room_crashes:
+            current_collision_flags[int(agent_id)] = True
+        self.segment_collision = np.logical_or(self.segment_collision, current_collision_flags)
+
+        # 4) Survival reward without collisions
+        rew_survival = np.zeros(self.num_agents)
+        for i in range(self.num_agents):
+            is_collision = False
+            if rew_collisions_raw[i] < 0:
+                is_collision = True
+            if self.use_obstacles and rew_obst_quad_collisions_raw[i] < 0:
+                is_collision = True
+            if i in current_room_crashes:
+                is_collision = True
+            
+            if is_collision:
+                self.time_since_last_collision[i] = 0
+            else:
+                self.time_since_last_collision[i] += 1
+            
+            # Survival reward increases over time, with a cap to prevent just hovering
+            # e.g., max reward = 0.5 per second -> 0.5 * dt per step
+            # Let's say it reaches the max at 5 seconds (5 / dt steps)
+            max_survive_reward_rate = 0.5
+            time_to_max = 5.0
+            steps_to_max = time_to_max / self.control_dt
+            
+            reward_rate = max_survive_reward_rate * min(1.0, self.time_since_last_collision[i] / steps_to_max)
+            rew_survival[i] = reward_rate * self.control_dt
+
         # Reward & Info
         for i in range(self.num_agents):
             rewards[i] += rew_collisions[i]
             rewards[i] += rew_proximity[i]
+            rewards[i] += rew_room_floor[i]
+            rewards[i] += rew_room_wall[i]
+            rewards[i] += rew_room_ceiling[i]
+            rewards[i] += rew_survival[i]
 
             infos[i]["rewards"]["rew_quadcol"] = rew_collisions[i]
             infos[i]["rewards"]["rew_proximity"] = rew_proximity[i]
+            infos[i]["rewards"]["rew_room_floor"] = rew_room_floor[i]
+            infos[i]["rewards"]["rew_room_wall"] = rew_room_wall[i]
+            infos[i]["rewards"]["rew_room_ceiling"] = rew_room_ceiling[i]
+            infos[i]["rewards"]["rew_survival"] = rew_survival[i]
             infos[i]["rewards"]["rewraw_quadcol"] = rew_collisions_raw[i]
+            infos[i]["rewards"]["rewraw_room_floor"] = rew_room_floor_raw[i]
+            infos[i]["rewards"]["rewraw_room_wall"] = rew_room_wall_raw[i]
+            infos[i]["rewards"]["rewraw_room_ceiling"] = rew_room_ceiling_raw[i]
 
             if self.use_obstacles:
                 rewards[i] += rew_collisions_obst_quad[i]
@@ -587,7 +788,22 @@ class QuadrotorEnvMulti(gym.Env):
                     perform_collision_with_ceiling(drone_dyn=self.envs[val].dynamics)
 
         # 4. Run the scenario passed to self.quads_mode
-        self.scenario.step()
+        reached_waypoints = np.array([
+            np.linalg.norm(env.dynamics.pos - self.scenario.goals[i]) < self.scenario.waypoint_threshold
+            for i, env in enumerate(self.envs)
+        ])
+        scenario_state_changed = bool(self.scenario.step())
+        for i, reached_waypoint in enumerate(reached_waypoints):
+            if not reached_waypoint:
+                continue
+            segment_time = self.envs[i].tick * self.envs[i].dt - self.segment_start_time[i]
+            self.target_reached_count[i] += 1
+            self.target_collision_count[i] += float(self.segment_collision[i])
+            self.segment_time_sum[i] += segment_time
+            self.segment_path_sum[i] += self.segment_path_length[i]
+            self.segment_collision[i] = False
+            self.segment_path_length[i] = 0.0
+            self.segment_start_time[i] = self.envs[i].tick * self.envs[i].dt
 
         # 5. Collect final observations
         # Collect positions after physical interaction
@@ -595,7 +811,7 @@ class QuadrotorEnvMulti(gym.Env):
             self.pos[i, :] = self.envs[i].dynamics.pos
             self.vel[i, :] = self.envs[i].dynamics.vel
 
-        if self_state_update_flag:
+        if self_state_update_flag or scenario_state_changed:
             obs = [e.state_vector(e) for e in self.envs]
 
         # Concatenate observations of neighbor drones
@@ -604,7 +820,7 @@ class QuadrotorEnvMulti(gym.Env):
 
         # Concatenate obstacle observations
         if self.use_obstacles:
-            obs = self.obstacles.step(obs=obs, quads_pos=self.pos)
+            obs = self.obstacles.step(obs=obs, quads_pos=self.pos, ray_rotations=self.quad_yaw_ray_rotations())
 
         # 6. Update info for replay buffer
         # Once agent learns how to take off, activate the replay buffer
@@ -660,6 +876,45 @@ class QuadrotorEnvMulti(gym.Env):
                         f'{scenario_name}/distance_to_goal_5s': (1.0 / self.envs[0].dt) * np.mean(
                             self.distance_to_goal[i, int(-5 * self.control_freq):]),
                     }
+                    if self.stuck_steps[i] >= 3.0 * self.control_freq:
+                        self.stuck_windows[i] += 1
+                        self.stuck_steps[i] = 0
+                    avg_accel = self.velocity_delta_sum[i] / max(1.0, self.velocity_delta_count[i])
+                    final_distance = float(np.linalg.norm(self.envs[i].goal - self.pos[i]))
+                    straight_distance = max(float(self.start_goal_distance[i]), 1e-6)
+                    path_ratio = float(self.path_length[i] / straight_distance)
+                    near_obstacle_time = float(self.near_obstacle_steps[i] * self.control_dt)
+                    flight_time = float(self.envs[i].tick * self.envs[i].dt)
+                    reached_time = self.goal_reach_time[i]
+                    reached_goal = bool(self.reached_goal[i]) or not np.isnan(reached_time)
+                    if np.isnan(reached_time):
+                        reached_time = flight_time
+                    min_obst_distance = self.min_obstacle_distance[i]
+                    if not np.isfinite(min_obst_distance):
+                        min_obst_distance = np.nan
+
+                    infos[i]['episode_extra_stats'].update({
+                        'eval/reached_goal': float(reached_goal),
+                        'eval/targets_reached': float(self.target_reached_count[i]),
+                        'eval/target_collisions': float(self.target_collision_count[i]),
+                        'eval/target_collision_rate': float(
+                            self.target_collision_count[i] / max(1.0, self.target_reached_count[i])),
+                        'eval/avg_target_time_s': float(
+                            self.segment_time_sum[i] / max(1.0, self.target_reached_count[i])),
+                        'eval/avg_target_path_length_m': float(
+                            self.segment_path_sum[i] / max(1.0, self.target_reached_count[i])),
+                        'eval/final_distance_to_goal': final_distance,
+                        'eval/goal_reach_time_s': float(reached_time),
+                        'eval/flight_time_s': flight_time,
+                        'eval/path_length_m': float(self.path_length[i]),
+                        'eval/straight_line_distance_m': straight_distance,
+                        'eval/path_efficiency_ratio': path_ratio,
+                        'eval/min_obstacle_distance_m': float(min_obst_distance),
+                        'eval/mean_accel_change_mps2': float(avg_accel),
+                        'eval/near_obstacle_time_s': near_obstacle_time,
+                        'eval/stuck_windows': float(self.stuck_windows[i]),
+                        'eval/room_collision_count': float(self.collisions_room_per_episode),
+                    })
 
                     if self.use_obstacles:
                         infos[i]['episode_extra_stats']['num_collisions_obst_quad'] = \

@@ -202,18 +202,24 @@ class OmegaThrustControl(object):
 
 # TODO: this has not been tested well yet.
 class VelocityYawControl(object):
-    def __init__(self, dynamics):
+    def __init__(self, dynamics, max_speed=3.0):
         jacobian = quadrotor_jacobian(dynamics)
         self.Jinv = np.linalg.inv(jacobian)
+        self.action = None
+        self.max_speed = max_speed
+        self.step_func = self.step
 
     def action_space(self, dynamics):
-        vmax = 20.0  # meters / sec
+        vmax = self.max_speed  # meters / sec
         dymax = 4 * np.pi  # radians / sec
         high = np.array([vmax, vmax, vmax, dymax])
         return spaces.Box(-high, high, dtype=np.float32)
 
     # @profile
-    def step(self, dynamics, action, dt):
+    def step(self, dynamics, action, goal=None, dt=0.0, observation=None):
+        vmax = self.max_speed  # meters / sec
+        action = np.clip(action, a_min=np.array([-vmax, -vmax, -vmax, -4 * np.pi]),
+                         a_max=np.array([vmax, vmax, vmax, 4 * np.pi]))
         # needs to be much bigger than in normal controller
         # so the random initial actions in RL create some signal
         kp_v = 5.0
@@ -239,13 +245,191 @@ class VelocityYawControl(object):
 
         dw_des = -kp_a * e_R - kd_a * e_w
         # we want this acceleration, but we can only accelerate in one direction!
-        # thrust_mag = np.dot(acc_des, dynamics.rot[:,2])
-        thrust_mag = get_blas_funcs("thrust_mag", [acc_des, dynamics.rot[:, 2]])
+        thrust_mag = np.dot(acc_des, dynamics.rot[:, 2])
 
         des = np.append(thrust_mag, dw_des)
         thrusts = np.matmul(self.Jinv, des)
         thrusts = np.clip(thrusts, a_min=0.0, a_max=1.0)
         dynamics.step(thrusts, dt)
+        self.action = np.array(action).copy()
+
+
+class VelocityYawAvoidControl(VelocityYawControl):
+    """
+    Velocity-yaw controller with a CBF-QP safety filter.
+
+    The RL policy chooses a nominal velocity. This layer projects its horizontal
+    component onto the closest velocity satisfying lidar clearance constraints.
+    """
+    def __init__(self, dynamics, max_speed=3.0, avoid_radius=0.8,
+                 cbf_safe_distance=0.5, cbf_alpha=1.5,
+                 lidar_filter_alpha=0.35, activation_hysteresis=0.08,
+                 floor_guard_z=1.2, floor_guard_kp=1.5, floor_guard_max_vz=0.8):
+        if cbf_safe_distance < 0.0:
+            raise ValueError("cbf_safe_distance must be non-negative")
+        if avoid_radius <= cbf_safe_distance:
+            raise ValueError("avoid_radius must be greater than cbf_safe_distance")
+        if cbf_alpha <= 0.0:
+            raise ValueError("cbf_alpha must be positive")
+        if not 0.0 < lidar_filter_alpha <= 1.0:
+            raise ValueError("lidar_filter_alpha must be in (0, 1]")
+        if activation_hysteresis < 0.0:
+            raise ValueError("activation_hysteresis must be non-negative")
+        super().__init__(dynamics, max_speed=max_speed)
+        self.dynamics = dynamics
+        self.avoid_radius = avoid_radius
+        self.cbf_safe_distance = cbf_safe_distance
+        self.cbf_alpha = cbf_alpha
+        self.lidar_filter_alpha = lidar_filter_alpha
+        self.activation_hysteresis = activation_hysteresis
+        self.floor_guard_z = floor_guard_z
+        self.floor_guard_kp = floor_guard_kp
+        self.floor_guard_max_vz = floor_guard_max_vz
+        self.reset()
+
+    def reset(self):
+        self.filtered_lidar = None
+        self.active_lidar_constraints = np.zeros(9, dtype=bool)
+
+    def _body_yaw_rotation_xy(self):
+        body_x = self.dynamics.rot[:2, 0]
+        norm = np.linalg.norm(body_x)
+        if norm < 1e-6:
+            c, s = 1.0, 0.0
+        else:
+            c, s = body_x[0] / norm, body_x[1] / norm
+        return np.array([[c, -s], [s, c]], dtype=np.float64)
+
+    def _lidar_directions(self):
+        angles = 2.0 * np.pi * np.arange(9, dtype=np.float64) / 9.0
+        return np.column_stack((np.cos(angles), np.sin(angles)))
+
+    @staticmethod
+    def _is_feasible(velocity, constraint_normals, constraint_limits, tolerance=1e-8):
+        return np.all(np.matmul(constraint_normals, velocity) <= constraint_limits + tolerance)
+
+    def _project_velocity(self, nominal_velocity, constraint_normals, constraint_limits):
+        """
+        Solve min ||v - v_nominal||^2 subject to A v <= b in two dimensions.
+
+        The optimum is the nominal point, a projection onto one active boundary,
+        or the intersection of two active boundaries.
+        """
+        nominal_velocity = np.asarray(nominal_velocity, dtype=np.float64)
+        candidates = []
+        if self._is_feasible(nominal_velocity, constraint_normals, constraint_limits):
+            candidates.append(nominal_velocity)
+
+        for i in range(len(constraint_limits)):
+            normal = constraint_normals[i]
+            normal_sq = float(np.dot(normal, normal))
+            if normal_sq < 1e-12:
+                continue
+            violation = float(np.dot(normal, nominal_velocity) - constraint_limits[i])
+            projected = nominal_velocity - (violation / normal_sq) * normal
+            if self._is_feasible(projected, constraint_normals, constraint_limits):
+                candidates.append(projected)
+
+        for i in range(len(constraint_limits)):
+            for j in range(i + 1, len(constraint_limits)):
+                matrix = np.vstack((constraint_normals[i], constraint_normals[j]))
+                determinant = float(np.linalg.det(matrix))
+                if abs(determinant) < 1e-10:
+                    continue
+                intersection = np.linalg.solve(
+                    matrix,
+                    np.array([constraint_limits[i], constraint_limits[j]], dtype=np.float64),
+                )
+                if self._is_feasible(intersection, constraint_normals, constraint_limits):
+                    candidates.append(intersection)
+
+        if not candidates:
+            return np.zeros(2, dtype=np.float64)
+        return min(candidates, key=lambda velocity: np.sum((velocity - nominal_velocity) ** 2))
+
+    def _safe_body_velocity(self, nominal_velocity, observation):
+        if observation is None:
+            return np.asarray(nominal_velocity, dtype=np.float64)
+
+        obs = np.asarray(observation).reshape(-1)
+        if obs.size < 9:
+            return np.asarray(nominal_velocity, dtype=np.float64)
+
+        lidar = np.asarray(obs[-9:], dtype=np.float64)
+        if self.filtered_lidar is None:
+            self.filtered_lidar = lidar.copy()
+        else:
+            finite = np.isfinite(lidar)
+            previous_finite = np.isfinite(self.filtered_lidar)
+            update = finite & previous_finite
+            self.filtered_lidar[update] = (
+                self.lidar_filter_alpha * lidar[update]
+                + (1.0 - self.lidar_filter_alpha) * self.filtered_lidar[update]
+            )
+            self.filtered_lidar[finite & ~previous_finite] = lidar[finite & ~previous_finite]
+            self.filtered_lidar[~finite] = np.inf
+
+        activate = self.filtered_lidar < self.avoid_radius
+        deactivate = self.filtered_lidar >= self.avoid_radius + self.activation_hysteresis
+        self.active_lidar_constraints[activate] = True
+        self.active_lidar_constraints[deactivate] = False
+
+        directions = self._lidar_directions()
+        constraint_normals = [
+            np.array([1.0, 0.0]),
+            np.array([-1.0, 0.0]),
+            np.array([0.0, 1.0]),
+            np.array([0.0, -1.0]),
+        ]
+        constraint_limits = [self.max_speed, self.max_speed, self.max_speed, self.max_speed]
+
+        for direction, distance, active in zip(
+                directions, self.filtered_lidar, self.active_lidar_constraints):
+            if active and np.isfinite(distance):
+                constraint_normals.append(direction)
+                constraint_limits.append(self.cbf_alpha * (float(distance) - self.cbf_safe_distance))
+
+        return self._project_velocity(
+            nominal_velocity,
+            np.asarray(constraint_normals, dtype=np.float64),
+            np.asarray(constraint_limits, dtype=np.float64),
+        )
+
+    def _floor_guard_vz(self, dynamics):
+        if dynamics.pos[2] >= self.floor_guard_z:
+            return None
+
+        z_error = max(0.0, self.floor_guard_z - float(dynamics.pos[2]))
+        climb_vz = self.floor_guard_kp * z_error - float(dynamics.vel[2])
+        return float(np.clip(climb_vz, 0.0, self.floor_guard_max_vz))
+
+    def step(self, dynamics, action, goal=None, dt=0.0, observation=None):
+        action = np.asarray(action, dtype=np.float64).copy()
+        rotation = self._body_yaw_rotation_xy()
+        body_velocity = np.matmul(rotation.T, action[:2])
+        action[:2] = np.matmul(rotation, self._safe_body_velocity(body_velocity, observation))
+        guard_vz = self._floor_guard_vz(dynamics)
+        if guard_vz is not None:
+            action[2] = max(action[2], guard_vz)
+        return super().step(dynamics, action, goal=goal, dt=dt, observation=observation)
+
+
+class BodyFrameVelocityYawAvoidControl(VelocityYawAvoidControl):
+    """
+    Velocity-yaw avoid controller whose policy action uses the quad body-yaw frame.
+
+    action[0:2] are forward/lateral velocity commands in body-yaw XY. They are
+    rotated into world XY before tracking. action[2] remains world vertical speed.
+    """
+    def step(self, dynamics, action, goal=None, dt=0.0, observation=None):
+        body_action = np.asarray(action, dtype=np.float64).copy()
+        body_action[:2] = self._safe_body_velocity(body_action[:2], observation)
+        world_action = body_action.copy()
+        world_action[:2] = np.matmul(self._body_yaw_rotation_xy(), body_action[:2])
+        guard_vz = self._floor_guard_vz(dynamics)
+        if guard_vz is not None:
+            world_action[2] = max(world_action[2], guard_vz)
+        return VelocityYawControl.step(self, dynamics, world_action, goal=goal, dt=dt, observation=observation)
 
 
 # this is an "oracle" policy to drive the quadrotor towards a goal
